@@ -1,9 +1,9 @@
 
 # Run from original json to internal json format with token-level labels
-python processed/bea2019/convert_from_orig.py -gold original/bea2019/json/A.dev.json -out processed/bea2019/json/A.dev.json
-python processed/bea2019/convert_from_orig.py -gold original/bea2019/json/B.dev.json -out processed/bea2019/json/B.dev.json
-python processed/bea2019/convert_from_orig.py -gold original/bea2019/json/C.dev.json -out processed/bea2019/json/C.dev.json
-python processed/bea2019/convert_from_orig.py -gold original/bea2019/json/N.dev.json -out processed/bea2019/json/N.dev.json
+python processed/convert_from_orig_gec_to_json.py -gold original/bea2019/json/A.dev.json -out processed/bea2019/json/A.dev.json
+python processed/convert_from_orig_gec_to_json.py -gold original/bea2019/json/B.dev.json -out processed/bea2019/json/B.dev.json
+python processed/convert_from_orig_gec_to_json.py -gold original/bea2019/json/C.dev.json -out processed/bea2019/json/C.dev.json
+python processed/convert_from_orig_gec_to_json.py -gold original/bea2019/json/N.dev.json -out processed/bea2019/json/N.dev.json
 
 python processed/bea2019/convert_from_orig.py -gold original/bea2019/json/A.train.json -out processed/bea2019/json/A.train.json
 python processed/bea2019/convert_from_orig.py -gold original/bea2019/json/B.train.json -out processed/bea2019/json/B.train.json
