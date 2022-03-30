@@ -6,6 +6,8 @@ name = "pypi"
 [packages]
 spacy = "~=2.3"
 errant = "*"
+torch = "*"
+transformers = "*"
 
 [dev-packages]
 

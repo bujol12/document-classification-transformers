@@ -128,8 +128,11 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# pyCharm
+.idea/*
+
 # data
 data/original/*
-data/processed/bea2019/json/*
-data/processed/fce/json/*
-data/processed/imdb/json/*
+data/processed/bea2019/json/*.json
+data/processed/fce/json/*.json
+data/processed/imdb/json/*.json
