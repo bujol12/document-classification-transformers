@@ -136,3 +136,6 @@ data/original/*
 data/processed/bea2019/json/*.json
 data/processed/fce/json/*.json
 data/processed/imdb/json/*.json
+
+# runs
+runs/*

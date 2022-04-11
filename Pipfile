@@ -8,6 +8,9 @@ spacy = "~=2.3"
 errant = "*"
 torch = "*"
 transformers = "*"
+pandas = "*"
+datasets = "*"
+scikit-learn = "*"
 
 [dev-packages]
 
