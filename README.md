@@ -9,3 +9,7 @@ Prerequisites: pyenv
 1. Activate pipenv:
 1. Install requirements: 
 1. Install english spacy: ``python -m spacy download en``
+
+## Run
+`` python main.py --config config/dev.json --eval data/processed/fce/json/dev_small.json --train data/processed/fce/json/dev_small.json
+``

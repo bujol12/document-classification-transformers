@@ -8,6 +8,8 @@ from operator import itemgetter
 from string import punctuation
 from copy import deepcopy
 
+FCE_PASS_SCORE = 28
+
 
 # Convert BEA2019 Shared Task style JSON to document-classification JSOn format
 def main():
@@ -46,13 +48,13 @@ def main():
     norm_dict = {ord(k): v for k, v in norm_dict.items()}
 
     output_dict = {"documents": []}
-    empty_doc = {"tokens": [], "document_label": None, "sentence_labels": None, "token_labels": []}
+    empty_doc = {"tokens": [], "document_label": None, "sentence_labels": None, "token_labels": [], "id": None}
 
     print("Preprocessing files...")
     # Open the file
     with open(args.json_file) as data:
         # Process each line
-        for line in data:
+        for cnt, line in enumerate(data):
             # 1 line == 1 text/document
 
             # Load the JSON line
@@ -84,6 +86,21 @@ def main():
             coder_ids = sorted(coder_dict.keys())
 
             doc = deepcopy(empty_doc)
+            if 'cefr' in line.keys():
+                # BEA
+                if line["cefr"][0] not in ['A', 'C']:
+                    continue  # skip not very bad/very good
+
+                doc["document_label"] = 1 if line['cefr'][0] == 'A' else 0
+                doc["id"] = line["id"]
+            elif "script-s" in line.keys():
+                # FCE
+                # TODO: merging of FCE essays for same student
+                # TODO: check if the conversion to 1/0 works well + check the distribution
+                doc["document_label"] = 1 if line['cefr'] < FCE_PASS_SCORE else 0  # 1 if fail, 0 if pass
+                doc["id"] = line["id"]
+            else:
+                doc["id"] = cnt
 
             # Loop through the paragraphs for the first coder
             for para_id, para in enumerate(coder_dict[0]):

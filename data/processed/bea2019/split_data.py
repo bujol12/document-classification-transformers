@@ -23,6 +23,10 @@ def main():
     train_docs = [input_json["documents"][idx] for idx in range(len(input_json["documents"])) if idx not in dev_idx]
     dev_docs = [input_json["documents"][idx] for idx in range(len(input_json["documents"])) if idx in dev_idx]
 
+    # store idx stored in the dataset
+    dev_real_idx = [input_json["documents"][idx]["id"] for idx in range(len(input_json["documents"])) if
+                    idx in dev_idx]
+
     train = {"documents": train_docs}
     dev = {"documents": dev_docs}
 
@@ -33,7 +37,7 @@ def main():
         json.dump(train, f)
 
     with open(args.dev_idx_file_out, 'w') as f:
-        json.dump(dev_idx, f)
+        json.dump(dev_real_idx, f)
 
 
 def parse_args():

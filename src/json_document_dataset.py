@@ -73,7 +73,7 @@ class JsonDocumentDataset(Dataset):
                 self.document_labels.append(doc["document_label"])
 
         # Add Transformer tokenizer
-        if "roberta" in config.transformers_model_name_or_path.lower():
+        if "roberta" in config.transformers_model_name_or_path.lower() or "longformer" in config.transformers_model_name_or_path.lower():
             self.tokeniser = AutoTokenizer.from_pretrained(config.transformers_model_name_or_path,
                                                            add_prefix_space=True)
         else:
@@ -156,6 +156,8 @@ class JsonDocumentDataset(Dataset):
                         label_ids.append(-100)
                 previous_word_idx = word_idx
 
+            truncated_labels = flat_labels[max([word for word in word_ids if word is not None]) + 1:]
+            label_ids += truncated_labels  # add labels of truncated tokens
             processed_labels.append(label_ids)
         return processed_labels
 
@@ -163,6 +165,7 @@ class JsonDocumentDataset(Dataset):
     def own_default_collator(features: List[Any]) -> Dict[str, Any]:
         """
         Similar to HuggingFace default_data_collator, but does not have special handling for labels_ids etc
+        Truncate input that's too long
         :return:
         """
 
@@ -183,7 +186,11 @@ class JsonDocumentDataset(Dataset):
                 batch["label_ids"] = torch.stack([f["label_ids"] for f in features])
             else:
                 dtype = torch.long if type(first["label_ids"][0]) is int else torch.float
-                batch["label_ids"] = torch.tensor([f["label_ids"] for f in features], dtype=dtype)
+                batch["label_ids"] = torch.nn.utils.rnn.pad_sequence(
+                    [torch.tensor(f["label_ids"], dtype=dtype) for f in features], batch_first=True, padding_value=-100)
+
+                # pad all label ids to be of the same length across the batch, -100 shows end of original label_ids
+                # batch["label_ids"] = torch.tensor([f["label_ids"] for f in features], dtype=dtype)
 
         # Handling of all other possible keys.
         # Again, we will use the first element to figure out which key/values are not None for this model.
@@ -193,5 +200,4 @@ class JsonDocumentDataset(Dataset):
                     batch[k] = torch.stack([f[k] for f in features])
                 else:
                     batch[k] = torch.tensor([f[k] for f in features])
-
         return batch

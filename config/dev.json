@@ -1,8 +1,8 @@
 {
-  "transformers_model_name_or_path": "roberta-base",
+  "transformers_model_name_or_path": "allenai/longformer-base-4096",
   "infer_labels": true,
   "seed": 20,
-  "max_transformer_input_len": 512,
+  "max_transformer_input_len": 10,
   "compose_sentence_representations": false,
   "train_batch_size": 64,
   "eval_batch_size": 128,

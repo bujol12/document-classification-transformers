@@ -98,6 +98,9 @@ class Experiment:
 
             for step, batch in enumerate(self.train_dataloader):
                 cls_logit, token_outputs = self.model(**batch)
+                # TODO: token outputs can be smaller than batch["label_ids"]
+                #  -> right-pad with 0s for tokens where batch["label_ids"] != -100
+                #  (-100 is padding to ensure all batch label_ids have the same length)
                 loss = self.__calculate_loss(cls_logit, batch["label"], token_outputs, batch["label_ids"])
                 loss = loss / self.config.gradient_accumulation_steps
 

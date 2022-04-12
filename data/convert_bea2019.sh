@@ -5,11 +5,11 @@ python processed/convert_from_orig_gec_to_json.py -gold original/bea2019/json/B.
 python processed/convert_from_orig_gec_to_json.py -gold original/bea2019/json/C.dev.json -out processed/bea2019/json/C.dev.json
 python processed/convert_from_orig_gec_to_json.py -gold original/bea2019/json/N.dev.json -out processed/bea2019/json/N.dev.json
 
-python processed/bea2019/convert_from_orig.py -gold original/bea2019/json/A.train.json -out processed/bea2019/json/A.train.json
-python processed/bea2019/convert_from_orig.py -gold original/bea2019/json/B.train.json -out processed/bea2019/json/B.train.json
-python processed/bea2019/convert_from_orig.py -gold original/bea2019/json/C.train.json -out processed/bea2019/json/C.train.json
+python processed/convert_from_orig_gec_to_json.py -gold original/bea2019/json/A.train.json -out processed/bea2019/json/A.train.json
+python processed/convert_from_orig_gec_to_json.py -gold original/bea2019/json/B.train.json -out processed/bea2019/json/B.train.json
+python processed/convert_from_orig_gec_to_json.py -gold original/bea2019/json/C.train.json -out processed/bea2019/json/C.train.json
 
-# Merge datasets of different proficiency
+# Merge datasets of different proficiency & filter only for A/C proficiency as labels
 python processed/bea2019/merge_datasets.py -i processed/bea2019/json/A.dev.json -i processed/bea2019/json/B.dev.json -i processed/bea2019/json/C.dev.json -i processed/bea2019/json/N.dev.json -out processed/bea2019/json/test.json
 python processed/bea2019/merge_datasets.py -i processed/bea2019/json/A.train.json -i processed/bea2019/json/B.train.json -i processed/bea2019/json/C.train.json -out processed/bea2019/json/train_orig.json
 
