@@ -97,11 +97,16 @@ class Experiment:
             self.model.train()
 
             for step, batch in enumerate(self.train_dataloader):
-                cls_logit, token_outputs = self.model(**batch)
+                # move to device
+                moved_batch = {}
+                for k, v in batch.items():
+                    moved_batch[k] = v.to(self.device)
+
+                cls_logit, token_outputs = self.model(**moved_batch)
                 # TODO: token outputs can be smaller than batch["label_ids"]
                 #  -> right-pad with 0s for tokens where batch["label_ids"] != -100
                 #  (-100 is padding to ensure all batch label_ids have the same length)
-                loss = self.__calculate_loss(cls_logit, batch["label"], token_outputs, batch["label_ids"])
+                loss = self.__calculate_loss(cls_logit, moved_batch["label"], token_outputs, moved_batch["label_ids"])
                 loss = loss / self.config.gradient_accumulation_steps
 
                 loss.backward()
@@ -111,6 +116,14 @@ class Experiment:
                     optimiser.step()
                     lr_scheduler.step()
                     optimiser.zero_grad()
+
+                # free up GPU
+                keys = moved_batch.keys()
+                for k in list(keys):
+                    del moved_batch[k]
+                del cls_logit
+                del token_outputs
+                torch.cuda.empty_cache()
 
             # Evaluate at the end of each epoch
             train_performance = self.eval(self.train_dataloader)
@@ -160,13 +173,28 @@ class Experiment:
         total_loss = torch.zeros(1, dtype=torch.float)
 
         for step, batch in enumerate(data_loader):
-            with torch.no_grad():
-                cls_probs, token_outputs = self.model(**batch)
+            # move to device
+            moved_batch = {}
+            for k, v in batch.items():
+                moved_batch[k] = v.to(self.device)
 
-            total_loss += len(batch["label"]) * self.__calculate_loss(cls_probs, batch["label"], token_outputs,
-                                                                      batch["label_ids"])
-            document_predictions += cls_probs.tolist()
-            true_document_labels += batch["label"].tolist()
+            with torch.no_grad():
+                cls_probs, token_outputs = self.model(**moved_batch)
+
+            total_loss += len(moved_batch["label"]) * self.__calculate_loss(cls_probs, moved_batch["label"],
+                                                                            token_outputs,
+                                                                            moved_batch["label_ids"])
+            document_predictions += cls_probs.detach().cpu().tolist()
+            true_document_labels += moved_batch["label"].detach().cpu().tolist()
+
+            # free up GPU
+            keys = moved_batch.keys()
+            for k in list(keys):
+                del moved_batch[k]
+
+            del cls_probs
+            del token_outputs
+            torch.cuda.empty_cache()
 
         return Metrics(torch.tensor(document_predictions), torch.tensor(true_document_labels),
                        loss=total_loss.item() / len(data_loader))

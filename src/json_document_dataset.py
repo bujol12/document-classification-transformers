@@ -47,7 +47,7 @@ class JsonDocumentDataset(Dataset):
         keys = set(data_dict["documents"][0].keys())
         logger.info(f"columns: {keys}")
         assert "documents" in data_dict.keys()
-        assert {"tokens", "document_label", "sentence_labels", "token_labels", "id"} == set(data_dict["documents"][0].keys())
+        assert {"tokens", "document_label", "sentence_labels", "token_labels"} == set(data_dict["documents"][0].keys())
 
         self.input_tokens = []
         self.document_labels = []

@@ -14,8 +14,6 @@ class Metrics:
         """
         self.y_preds = y_preds
         self.y_true = y_true
-        print(self.y_preds)
-        print(self.y_true)
         y_true_probs = F.one_hot(self.y_true)
 
         self.acc = accuracy_score(self.y_true, torch.argmax(self.y_preds, dim=1))
