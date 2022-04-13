@@ -170,7 +170,7 @@ class Experiment:
         token_predictions = []
         true_token_labels = []
 
-        total_loss = torch.zeros(1, dtype=torch.float)
+        total_loss = torch.zeros(1, dtype=torch.float).to(self.device)
 
         for step, batch in enumerate(data_loader):
             # move to device
@@ -183,7 +183,7 @@ class Experiment:
 
             total_loss += len(moved_batch["label"]) * self.__calculate_loss(cls_probs, moved_batch["label"],
                                                                             token_outputs,
-                                                                            moved_batch["label_ids"])
+                                                                            moved_batch["label_ids"]).detach().cpu()
             document_predictions += cls_probs.detach().cpu().tolist()
             true_document_labels += moved_batch["label"].detach().cpu().tolist()
 
@@ -211,6 +211,7 @@ class Experiment:
         assert len(set(cls_targets.tolist())) <= 2  # only support binary for now
         criterion = torch.nn.CrossEntropyLoss()
         loss = criterion(cls_logit, cls_targets)
+
         return loss
 
     def save_model(self, path: str):
