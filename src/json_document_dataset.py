@@ -44,7 +44,8 @@ class JsonDocumentDataset(Dataset):
             data_dict = json.load(f)
 
         # Check generic format of the input
-        logger.info(f"columns: {set(data_dict["documents"][0].keys()}")
+        keys = set(data_dict["documents"][0].keys())
+        logger.info(f"columns: {keys}")
         assert "documents" in data_dict.keys()
         assert {"tokens", "document_label", "sentence_labels", "token_labels"} == set(data_dict["documents"][0].keys())
 
