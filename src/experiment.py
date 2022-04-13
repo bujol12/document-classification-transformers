@@ -1,13 +1,13 @@
 import logging
 import math
+import gc
 import datetime
 import os
 import json
 
 import torch
 
-from sklearn.metrics import mean_squared_error
-from transformers import set_seed, default_data_collator, get_constant_schedule_with_warmup
+from transformers import set_seed, get_constant_schedule_with_warmup
 from torch.utils.data import DataLoader
 
 from .document_model import DocumentModel
@@ -107,6 +107,8 @@ class Experiment:
                 # remove immediately
                 del moved_batch["input_ids"]
                 del moved_batch["attention_mask"]
+                gc.collect()
+                torch.cuda.empty_cache()
 
                 # move labels to calculate loss
                 moved_batch["label_ids"] = batch["label_ids"].to(self.device)
@@ -130,9 +132,16 @@ class Experiment:
                 keys = moved_batch.keys()
                 for k in list(keys):
                     del moved_batch[k]
+
                 del cls_logit
                 del token_outputs
+                del moved_batch
+                gc.collect()
                 torch.cuda.empty_cache()
+
+            del loss
+            gc.collect()
+            torch.cuda.empty_cache()
 
             # Evaluate at the end of each epoch
             train_performance = self.eval(self.train_dataloader)
@@ -195,6 +204,8 @@ class Experiment:
                 # remove immediately
                 del moved_batch["input_ids"]
                 del moved_batch["attention_mask"]
+                gc.collect()
+                torch.cuda.empty_cache()
 
                 # move labels to calculate loss
                 moved_batch["label_ids"] = batch["label_ids"].to(self.device)
@@ -213,6 +224,8 @@ class Experiment:
 
             del cls_probs
             del token_outputs
+            del moved_batch
+            gc.collect()
             torch.cuda.empty_cache()
 
         return Metrics(torch.tensor(document_predictions), torch.tensor(true_document_labels),
