@@ -4,6 +4,7 @@ import gc
 import datetime
 import os
 import json
+import time
 
 import torch
 
@@ -97,6 +98,8 @@ class Experiment:
             self.model.train()
 
             for step, batch in enumerate(self.train_dataloader):
+                print(step)
+                time.sleep(25)
                 # move to device
                 moved_batch = {}
                 moved_batch["input_ids"] = batch["input_ids"].to(self.device)
@@ -136,12 +139,9 @@ class Experiment:
                 del cls_logit
                 del token_outputs
                 del moved_batch
+                del loss
                 gc.collect()
                 torch.cuda.empty_cache()
-
-            del loss
-            gc.collect()
-            torch.cuda.empty_cache()
 
             # Evaluate at the end of each epoch
             train_performance = self.eval(self.train_dataloader)
