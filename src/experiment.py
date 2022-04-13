@@ -98,8 +98,6 @@ class Experiment:
             self.model.train()
 
             for step, batch in enumerate(self.train_dataloader):
-                print(step)
-                time.sleep(25)
                 # move to device
                 moved_batch = {}
                 moved_batch["input_ids"] = batch["input_ids"].to(self.device)
