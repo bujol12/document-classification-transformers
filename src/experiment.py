@@ -183,7 +183,7 @@ class Experiment:
 
             total_loss += len(moved_batch["label"]) * self.__calculate_loss(cls_probs, moved_batch["label"],
                                                                             token_outputs,
-                                                                            moved_batch["label_ids"]).detach().cpu()
+                                                                            moved_batch["label_ids"]).detach().cpu().item()
             document_predictions += cls_probs.detach().cpu().tolist()
             true_document_labels += moved_batch["label"].detach().cpu().tolist()
 
@@ -196,8 +196,9 @@ class Experiment:
             del token_outputs
             torch.cuda.empty_cache()
 
+        print(total_loss)
         return Metrics(torch.tensor(document_predictions), torch.tensor(true_document_labels),
-                       loss=total_loss.item() / len(data_loader))
+                       loss=total_loss / len(data_loader))
 
     def __calculate_loss(self, cls_logit, cls_targets, token_outputs, token_targets):
         """
