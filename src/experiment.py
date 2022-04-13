@@ -170,9 +170,11 @@ class Experiment:
         token_predictions = []
         true_token_labels = []
 
+        total_len = 0
         total_loss = torch.zeros(1, dtype=torch.float)
 
         for step, batch in enumerate(data_loader):
+            total_len += len(batch["label"])
             # move to device
             moved_batch = {}
             for k, v in batch.items():
@@ -196,9 +198,8 @@ class Experiment:
             del token_outputs
             torch.cuda.empty_cache()
 
-        print(total_loss.item(), len(data_loader))
         return Metrics(torch.tensor(document_predictions), torch.tensor(true_document_labels),
-                       loss=total_loss.item() / len(data_loader))
+                       loss=total_loss.item() / total_len)
 
     def __calculate_loss(self, cls_logit, cls_targets, token_outputs, token_targets):
         """
