@@ -8,7 +8,7 @@ from operator import itemgetter
 from string import punctuation
 from copy import deepcopy
 
-FCE_PASS_SCORE = 28
+FCE_PASS_SCORE = 24
 
 
 # Convert BEA2019 Shared Task style JSON to document-classification JSOn format
@@ -47,7 +47,7 @@ def main():
                  '\u200b': ' '}
     norm_dict = {ord(k): v for k, v in norm_dict.items()}
 
-    output_dict = {"documents": []}
+    output_dict = {"documents": {}}
     empty_doc = {"tokens": [], "document_label": None, "sentence_labels": None, "token_labels": [], "id": None}
 
     print("Preprocessing files...")
@@ -95,9 +95,7 @@ def main():
                 doc["id"] = line["id"]
             elif "script-s" in line.keys():
                 # FCE
-                # TODO: merging of FCE essays for same student
-                # TODO: check if the conversion to 1/0 works well + check the distribution
-                doc["document_label"] = 1 if line['cefr'] < FCE_PASS_SCORE else 0  # 1 if fail, 0 if pass
+                doc["document_label"] = 1 if int(line['script-s']) < FCE_PASS_SCORE else 0  # 1 if fail, 0 if pass
                 doc["id"] = line["id"]
             else:
                 doc["id"] = cnt
@@ -152,7 +150,26 @@ def main():
                                     doc["token_labels"][-1][idx] = args.pos_label
 
             # add the newly created document to the dict
-            output_dict["documents"].append(doc)
+            if doc["id"] not in output_dict["documents"].keys():
+                output_dict["documents"][doc["id"]] = []
+            output_dict["documents"][doc["id"]].append(doc)
+
+    # aggregate outputs with the same idx and convert dict to list
+    documents = []
+    for idx, docs in output_dict["documents"].items():
+        doc = deepcopy(docs[0])
+        for i in range(1, len(docs)):
+            assert docs[i]["document_label"] == docs[0]["document_label"]
+
+            doc["tokens"] += docs[i]["tokens"]
+            doc["token_labels"] += docs[i]["token_labels"]
+
+            if doc["sentence_labels"] is not None:
+                doc["sentence_labels"] += docs[i]["sentence_labels"]
+
+        documents.append(deepcopy(doc))
+
+    output_dict["documents"] = deepcopy(documents)
 
     # write to output json file
     with open(args.out, 'w') as f:
