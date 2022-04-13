@@ -99,10 +99,19 @@ class Experiment:
             for step, batch in enumerate(self.train_dataloader):
                 # move to device
                 moved_batch = {}
-                for k, v in batch.items():
-                    moved_batch[k] = v.to(self.device)
+                moved_batch["input_ids"] = batch["input_ids"].to(self.device)
+                moved_batch["attention_mask"] = batch["attention_mask"].to(self.device)
 
                 cls_logit, token_outputs = self.model(**moved_batch)
+
+                # remove immediately
+                del moved_batch["input_ids"]
+                del moved_batch["attention_mask"]
+
+                # move labels to calculate loss
+                moved_batch["label_ids"] = batch["label_ids"].to(self.device)
+                moved_batch["label"] = batch["label"].to(self.device)
+
                 # TODO: token outputs can be smaller than batch["label_ids"]
                 #  -> right-pad with 0s for tokens where batch["label_ids"] != -100
                 #  (-100 is padding to ensure all batch label_ids have the same length)
@@ -177,15 +186,23 @@ class Experiment:
             total_len += len(batch["label"])
             # move to device
             moved_batch = {}
-            for k, v in batch.items():
-                moved_batch[k] = v.to(self.device)
+            moved_batch["input_ids"] = batch["input_ids"].to(self.device)
+            moved_batch["attention_mask"] = batch["attention_mask"].to(self.device)
 
             with torch.no_grad():
                 cls_probs, token_outputs = self.model(**moved_batch)
 
-            total_loss += len(moved_batch["label"]) * self.__calculate_loss(cls_probs, moved_batch["label"],
-                                                                            token_outputs,
-                                                                            moved_batch["label_ids"]).detach().cpu()
+                # remove immediately
+                del moved_batch["input_ids"]
+                del moved_batch["attention_mask"]
+
+                # move labels to calculate loss
+                moved_batch["label_ids"] = batch["label_ids"].to(self.device)
+                moved_batch["label"] = batch["label"].to(self.device)
+
+                total_loss += len(moved_batch["label"]) * self.__calculate_loss(cls_probs, moved_batch["label"],
+                                                                                token_outputs,
+                                                                                moved_batch["label_ids"]).detach().cpu()
             document_predictions += cls_probs.detach().cpu().tolist()
             true_document_labels += moved_batch["label"].detach().cpu().tolist()
 
