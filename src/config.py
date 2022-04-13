@@ -27,7 +27,7 @@ class Config:
     max_transformer_input_len: int = 512  # maximum len of tokenised input to transformer
     compose_sentence_representations: bool = False  # if set true, apply transformer to each sentence separately. If false, apply transformer to the whole document
     label_all_tokens: bool = False  # if False, only first part of token has a label, with rest = -100
-    optimiser: str = "adam"  # name of the optimiser to be used
+    optimiser: str = "adamW"  # name of the optimiser to be used
     lr: float = 2e-5  # learning rate
     opt_eps: float = 1e-7  # eps of the optimiser
     warmup_ratio: float = 0.10  # number of steps for the optimiser to warmup the learning rate

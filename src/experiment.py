@@ -76,6 +76,8 @@ class Experiment:
         # setup the optimiser
         if self.config.optimiser == "adam":
             optimiser = torch.optim.Adam(self.model.parameters(), lr=self.config.lr, eps=self.config.opt_eps)
+        elif self.config.optimiser == "adamW":
+            optimiser = torch.optim.AdamW(self.model.parameters(), lr=self.config.lr, eps=self.config.opt_eps)
         else:
             raise Exception("Unknown optimiser")
 
