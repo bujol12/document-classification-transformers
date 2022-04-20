@@ -1,19 +1,22 @@
 # Document Classification using Transformers
 
 ## Setup
-Prerequisites: pyenv
+Prerequisites: Anaconda
 
-1. Install python version: ``pyenv install 3.9.9``
-1. Set pythont to belocal in this folder ``pyenv local 3.9.9``
-1. Create new pipenv: ``pipenv --python $(pyenv which python)``
-1. Activate pipenv:
-1. Install requirements: 
+1. Set up conda env from the env.yml file.
 1. Install english spacy: ``python -m spacy download en``
 
 
-`conda env export --no-builds > env.yml`
 ## Conda
-1. `conda env create -f env.yml -n dissertation python=3.9.1`
+To dump the environment: `conda env export --no-builds > env.yml`
+
+Then, can recreate it somewhere else using: `conda env create -f env.yml -n dissertation python=3.9.1`
+
 ## Run
 `` python main.py --config config/dev.json --eval data/processed/fce/json/dev_small.json --train data/processed/fce/json/dev_small.json
 ``
+
+## Slurm
+Change config and datasets in the `run_slurm.sh` file
+
+Submit job: `sbatch run_slurm.sh`
