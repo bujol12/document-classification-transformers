@@ -6,6 +6,9 @@ import os
 import json
 import time
 
+from collections import OrderedDict
+from copy import deepcopy
+
 import torch
 
 from transformers import set_seed, get_constant_schedule_with_warmup
@@ -93,8 +96,10 @@ class Experiment:
             self.model.to(self.device)
 
         # training loop
-        prev_eval_loss = None
+        best_eval_loss = None
         early_stop_cnt = 0
+        best_model_state_dict = {k: deepcopy(v.to('cpu')) for k, v in self.model.state_dict().items()}
+        best_model_state_dict = OrderedDict(best_model_state_dict)
 
         for epoch in range(self.config.epochs):
             self.model.train()
@@ -154,14 +159,24 @@ class Experiment:
             print()
 
             if self.config.stop_if_no_improvement_n_epochs != -1:
-                if prev_eval_loss is None:
+                if best_eval_loss is None:
                     # first epoch
-                    prev_eval_loss = eval_performance.loss
+                    best_eval_loss = eval_performance.loss
                     early_stop_cnt = 0
-                elif prev_eval_loss > eval_performance.loss:
+
+                    # move best model to CPU and cache
+                    best_model_state_dict = {k: deepcopy(v.to('cpu')) for k, v in self.model.state_dict().items()}
+                    best_model_state_dict = OrderedDict(best_model_state_dict)
+
+                elif best_eval_loss > eval_performance.loss:
                     # loss decreasing
                     early_stop_cnt = 0
-                    prev_eval_loss = eval_performance.loss
+                    best_eval_loss = eval_performance.loss
+
+                    # move best model to CPU and cache
+                    best_model_state_dict = {k: deepcopy(v.to('cpu')) for k, v in self.model.state_dict().items()}
+                    best_model_state_dict = OrderedDict(best_model_state_dict)
+
                 else:
                     # loss not improving
                     early_stop_cnt += 1
@@ -169,6 +184,9 @@ class Experiment:
                 if early_stop_cnt >= self.config.stop_if_no_improvement_n_epochs:
                     # stop if no improvement
                     logger.info(f"No improvement of eval loss after {early_stop_cnt} epochs, early stopping...")
+                    # restore best model
+                    self.model.load_state_dict(best_model_state_dict)
+
                     return
 
     def eval(self, data_loader=None):
