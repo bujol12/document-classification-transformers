@@ -96,7 +96,7 @@ class Experiment:
             self.model.to(self.device)
 
         # training loop
-        best_eval_loss = None
+        best_eval_f1 = None
         early_stop_cnt = 0
         best_model_state_dict = {k: deepcopy(v.to('cpu')) for k, v in self.model.state_dict().items()}
         best_model_state_dict = OrderedDict(best_model_state_dict)
@@ -159,26 +159,26 @@ class Experiment:
             print()
 
             if self.config.stop_if_no_improvement_n_epochs != -1:
-                if best_eval_loss is None:
+                if best_eval_f1 is None:
                     # first epoch
-                    best_eval_loss = eval_performance.loss
+                    best_eval_f1 = eval_performance.f1
                     early_stop_cnt = 0
 
                     # move best model to CPU and cache
                     best_model_state_dict = {k: deepcopy(v.to('cpu')) for k, v in self.model.state_dict().items()}
                     best_model_state_dict = OrderedDict(best_model_state_dict)
 
-                elif best_eval_loss > eval_performance.loss:
+                elif best_eval_f1 > eval_performance.f1:
                     # loss decreasing
                     early_stop_cnt = 0
-                    best_eval_loss = eval_performance.loss
+                    best_eval_f1 = eval_performance.f1
 
                     # move best model to CPU and cache
                     best_model_state_dict = {k: deepcopy(v.to('cpu')) for k, v in self.model.state_dict().items()}
                     best_model_state_dict = OrderedDict(best_model_state_dict)
 
                 else:
-                    # loss not improving
+                    # f1 not improving on eval
                     early_stop_cnt += 1
 
                 if early_stop_cnt >= self.config.stop_if_no_improvement_n_epochs:
