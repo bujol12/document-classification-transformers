@@ -2,6 +2,7 @@ import json
 import itertools
 import logging
 from typing import List, Any, Dict
+from copy import deepcopy
 
 import torch
 from torch.utils.data.dataset import Dataset
@@ -134,7 +135,10 @@ class JsonDocumentDataset(Dataset):
         """
         processed_labels = []
         for i, labels in enumerate(self.token_labels):
-            flat_labels = list(itertools.chain(*labels))
+            if type(labels[0]) == list:
+                flat_labels = list(itertools.chain(*labels))
+            else:
+                flat_labels = deepcopy(labels)
             word_ids = self.tokenised_input.word_ids(batch_index=i)
 
             previous_word_idx = None
