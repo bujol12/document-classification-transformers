@@ -1,5 +1,6 @@
 #!/bin/bash
 #SBATCH --gres=gpu:1
+#SBATCH --partition gpgpuB
 #SBATCH --mail-type=ALL # required to send email notifcations
 #SBATCH --mail-user=kdb19 # required to send email notifcations - please replace 'your_username' with your college login name or email address
 # script to run the training on the Imperial DoC Slurm Cluster (necessary for Longformer for larger GPUs)
