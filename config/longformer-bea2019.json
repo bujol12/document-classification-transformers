@@ -10,5 +10,5 @@
   "epochs": 20,
   "gradient_accumulation_steps": 32,
   "stop_if_no_improvement_n_epochs": 5,
-  "dataset_name": "fce"
+  "dataset_name": "bea2019"
 }
