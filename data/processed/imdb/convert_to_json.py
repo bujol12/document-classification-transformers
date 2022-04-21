@@ -20,10 +20,12 @@ def main():
         for line in f:
             label, text = line.split("\t")
             # remove annotations
-            text = text.replace("</POS>", "").replace("<POS>", "").replace("</NEG>", "").replace("<NEG>", "")
-            sentences = text.split(".")  # split into sentences
+            # move token annotations and last full stop to avoid splitting into an empty one
+            text = text.replace(" </POS>", "").replace("<POS> ", "").replace(" </NEG>", "").replace("<NEG> ",
+                                                                                                    "").strip()
+            sentences = text.split(" . ")  # split into sentences. Doesn't split final . due to spaces
             # remove trailing spaces and newlines + add end of sentence dots back
-            sentences = [sent.strip().split(" ") + ["."] for sent in sentences]
+            sentences = [sent.strip().split(" ") for sent in sentences]
 
             doc = deepcopy(empty_doc)
             doc["tokens"] = sentences
@@ -35,21 +37,39 @@ def main():
     with open(args.block_csv_file) as f:
         i = 0
         for line in f:
-            labels = [int(label) for label in line.strip().split(" ")]
-            output_dict["documents"][i]["token_labels"] = labels
+            j = 0
+            token_labels_doc = [int(label) for label in line.strip().split(" ")]
+
+            output_dict["documents"][i]["token_labels"] = []
+            for sent in output_dict["documents"][i]["tokens"]:
+                token_labels = token_labels_doc[j:j + len(sent)]
+                j += len(sent)
+                output_dict["documents"][i]["token_labels"].append(token_labels)
+
             i += 1
+
     pos_output_dict = deepcopy(output_dict)
     neg_output_dict = deepcopy(output_dict)
 
     for doc in pos_output_dict["documents"]:
         if doc["document_label"] == 0:  # zero-out negative ones
-            doc["token_labels"] = [0 for _ in doc["token_labels"]]
+            doc["token_labels"] = [[0 for _ in sent] for sent in doc["token_labels"]]
+
+        # test if labels for tokens are of the same size and tokens themselves
+        for sent_id in range(len(doc["token_labels"])):
+            if len(doc["token_labels"][sent_id]) != len(doc["tokens"][sent_id]):
+                print("non-matching sizes!")
+                print("tokens_size:", len(doc["tokens"][sent_id]))
+                print("labels_size:", len(doc["token_labels"][sent_id]))
+                print(doc["tokens"][sent_id])
+                print(sent_id)
+                return
 
     for doc in neg_output_dict["documents"]:
         if doc["document_label"] == 1:  # zero-out positive ones
             doc["document_label"] = 0
-            doc["token_labels"] = [0 for _ in doc["token_labels"]]
-        else:
+            doc["token_labels"] = [[0 for _ in sent] for sent in doc["token_labels"]]
+        else:  # swap labels around so that negative becomes positive
             doc["document_label"] = 1
 
     with open(args.pos_out, 'w') as f:
