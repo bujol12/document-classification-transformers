@@ -168,8 +168,8 @@ class Experiment:
                     best_model_state_dict = {k: deepcopy(v.to('cpu')) for k, v in self.model.state_dict().items()}
                     best_model_state_dict = OrderedDict(best_model_state_dict)
 
-                elif best_eval_f1 > eval_performance.f1:
-                    # loss decreasing
+                elif best_eval_f1 < eval_performance.f1:
+                    # f1 improving
                     early_stop_cnt = 0
                     best_eval_f1 = eval_performance.f1
 
