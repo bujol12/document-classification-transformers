@@ -33,7 +33,8 @@ class Config:
     warmup_ratio: float = 0.06  # % number of steps for the optimiser to warmup the learning rate
     dropout: float = 0.10  # dropout outside of the transformer
     initializer_name: str = "xavier"  # how to initialise new layers
-    min_epochs: int = 10
+    min_epochs: int = 10  # min epochs to run for
+    weighted_loss: bool = False  # use weighted loss fucntion to tackle class imbalance
 
     @classmethod
     def from_json(cls, filepath):

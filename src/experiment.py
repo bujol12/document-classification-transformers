@@ -101,6 +101,7 @@ class Experiment:
         early_stop_cnt = 0
         best_model_state_dict = {k: deepcopy(v.to('cpu')) for k, v in self.model.state_dict().items()}
         best_model_state_dict = OrderedDict(best_model_state_dict)
+        weights = self.train_dataset.get_weights() if self.config.num_labels > 1 else None  # for loss function
 
         for epoch in range(self.config.epochs):
             self.model.train()
@@ -126,7 +127,8 @@ class Experiment:
                 # TODO: token outputs can be smaller than batch["label_ids"]
                 #  -> right-pad with 0s for tokens where batch["label_ids"] != -100
                 #  (-100 is padding to ensure all batch label_ids have the same length)
-                loss = self.__calculate_loss(cls_logit, moved_batch["label"], token_outputs, moved_batch["label_ids"])
+                loss = self.__calculate_loss(cls_logit, moved_batch["label"], token_outputs, moved_batch["label_ids"],
+                                             weights=weights)
                 loss = loss / self.config.gradient_accumulation_steps
 
                 loss.backward()
@@ -250,7 +252,7 @@ class Experiment:
         return Metrics(torch.tensor(document_predictions), torch.tensor(true_document_labels),
                        loss=total_loss.item() / total_len)
 
-    def __calculate_loss(self, cls_logit, cls_targets, token_outputs, token_targets):
+    def __calculate_loss(self, cls_logit, cls_targets, token_outputs, token_targets, weights=None):
         """
         Calculate the loss function given the document and token predictions. TOOD: add token-based loss
         :param cls_logit:
@@ -265,8 +267,11 @@ class Experiment:
             criterion = torch.nn.MSELoss()
             cls_targets = cls_targets.to(torch.float32)[:, None]
             cls_logit = torch.nn.Sigmoid()(cls_logit)
+        elif self.config.num_labels == 2:
+            criterion = torch.nn.BCEWithLogitsLoss(weight=weights)
+            cls_targets = torch.nn.functional.one_hot(cls_targets).to(torch.float32)
         else:
-            criterion = torch.nn.CrossEntropyLoss()
+            criterion = torch.nn.CrossEntropyLoss(weight=weights)
 
         loss = criterion(cls_logit, cls_targets)
 

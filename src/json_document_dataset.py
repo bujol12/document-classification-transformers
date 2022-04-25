@@ -48,7 +48,8 @@ class JsonDocumentDataset(Dataset):
         keys = set(data_dict["documents"][0].keys())
         logger.info(f"columns: {keys}")
         assert "documents" in data_dict.keys()
-        assert {"tokens", "document_label", "sentence_labels", "token_labels", "id"} == set(data_dict["documents"][0].keys())
+        assert {"tokens", "document_label", "sentence_labels", "token_labels", "id"} == set(
+            data_dict["documents"][0].keys())
 
         self.input_tokens = []
         self.document_labels = []
@@ -83,6 +84,26 @@ class JsonDocumentDataset(Dataset):
             self.tokeniser = AutoTokenizer.from_pretrained(config.transformers_model_name_or_path)
 
         self.__tokenise_and_align()
+
+    def get_weights(self, level="document"):
+        """
+        Get weights representing proportions of each label
+        :return: torch.tensor summing up to 1
+        """
+        counts = {}
+        if level == "document":
+            for label in self.document_labels:
+                counts[label] = counts.get(label, 0) + 1
+        else:
+            raise Exception("Undefined behaviour")
+
+        weights = torch.zeros(max(counts.keys()) + 1)
+        print(weights)
+        total = sum(counts.values())
+        for k, v in counts.items():
+            print(k, v)
+            weights[k] = v / total
+        return weights
 
     def __len__(self) -> int:
         return len(self.input_tokens)  # number of documents
