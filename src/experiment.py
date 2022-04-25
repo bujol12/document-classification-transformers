@@ -269,7 +269,8 @@ class Experiment:
             cls_logit = torch.nn.Sigmoid()(cls_logit)
         elif self.config.num_labels == 2:
             criterion = torch.nn.BCEWithLogitsLoss(weight=weights)
-            cls_targets = torch.nn.functional.one_hot(cls_targets).to(torch.float32)
+            cls_targets = torch.nn.functional.one_hot(cls_targets, num_classes=self.config.num_labels).to(
+                torch.float32).to(self.device)
         else:
             criterion = torch.nn.CrossEntropyLoss(weight=weights)
 

@@ -23,7 +23,7 @@ class Metrics:
             y_pred_labels = torch.round(self.y_preds[:, 0])
         else:
             self.y_true = y_true
-            y_true_probs = F.one_hot(self.y_true)
+            y_true_probs = F.one_hot(self.y_true, num_classes=self.num_labels)
             y_pred_labels = torch.argmax(self.y_preds, dim=1)
 
         self.acc = accuracy_score(self.y_true, y_pred_labels)
