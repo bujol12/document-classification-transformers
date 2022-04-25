@@ -13,14 +13,24 @@ class Metrics:
             :return: metric class
         """
         self.y_preds = y_preds
-        self.y_true = y_true
-        y_true_probs = F.one_hot(self.y_true)
+        self.num_labels = self.y_preds.shape[1]
 
-        self.acc = accuracy_score(self.y_true, torch.argmax(self.y_preds, dim=1))
+        if self.num_labels == 1:
+            # single values
+            self.y_true = y_true.to(torch.float32)
+            y_true_probs = self.y_true
+            self.y_preds = torch.nn.Sigmoid()(self.y_preds)
+            y_pred_labels = torch.round(self.y_preds[:, 0])
+        else:
+            self.y_true = y_true
+            y_true_probs = F.one_hot(self.y_true)
+            y_pred_labels = torch.argmax(self.y_preds, dim=1)
+
+        self.acc = accuracy_score(self.y_true, y_pred_labels)
         self.map = average_precision_score(y_true_probs, self.y_preds)
-        self.f1 = f1_score(self.y_true, torch.argmax(self.y_preds, dim=1))
-        self.p = precision_score(self.y_true, torch.argmax(self.y_preds, dim=1))
-        self.r = recall_score(self.y_true, torch.argmax(self.y_preds, dim=1))
+        self.f1 = f1_score(self.y_true, y_pred_labels)
+        self.p = precision_score(self.y_true, y_pred_labels)
+        self.r = recall_score(self.y_true, y_pred_labels)
         self.loss = loss
 
     def to_json(self):

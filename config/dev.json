@@ -9,6 +9,6 @@
   "num_labels": 2,
   "epochs": 100,
   "gradient_accumulation_steps": 1,
-  "stop_if_no_improvement_n_epochs": 10,
+  "stop_if_no_improvement_n_epochs": -1,
   "dataset_name": "fce"
 }

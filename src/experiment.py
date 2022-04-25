@@ -260,7 +260,14 @@ class Experiment:
         :return:
         """
         assert len(set(cls_targets.tolist())) <= 2  # only support binary for now
-        criterion = torch.nn.CrossEntropyLoss()
+        if self.config.num_labels == 1:
+            # MSE
+            criterion = torch.nn.MSELoss()
+            cls_targets = cls_targets.to(torch.float32)[:, None]
+            cls_logit = torch.nn.Sigmoid()(cls_logit)
+        else:
+            criterion = torch.nn.CrossEntropyLoss()
+
         loss = criterion(cls_logit, cls_targets)
 
         return loss
