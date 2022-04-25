@@ -98,10 +98,8 @@ class JsonDocumentDataset(Dataset):
             raise Exception("Undefined behaviour")
 
         weights = torch.zeros(max(counts.keys()) + 1)
-        print(weights)
         total = sum(counts.values())
         for k, v in counts.items():
-            print(k, v)
             weights[k] = v / total
         return weights
 
