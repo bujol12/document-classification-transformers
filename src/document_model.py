@@ -1,7 +1,7 @@
 import torch
 import logging
 
-from transformers import AutoModel, PretrainedConfig, AutoConfig, PreTrainedModel, AutoModelForSequenceClassification
+from transformers import AutoModel, PretrainedConfig, AutoConfig, PreTrainedModel
 from transformers.modeling_outputs import BaseModelOutput
 
 from .config import Config
@@ -38,7 +38,6 @@ class DocumentModel(torch.nn.Module):
         self.cls_dropout = torch.nn.Dropout(p=self.config.dropout)
         self.cls_logit_layer = torch.nn.Linear(self.lm_config.hidden_size, self.config.num_labels)
 
-        self.__init_weights(self.cls_hidden)
         self.__init_weights(self.cls_dropout)
         self.__init_weights(self.cls_logit_layer)
 
