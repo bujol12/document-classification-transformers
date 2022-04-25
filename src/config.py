@@ -32,7 +32,8 @@ class Config:
     opt_eps: float = 1e-7  # eps of the optimiser
     warmup_ratio: float = 0.10  # number of steps for the optimiser to warmup the learning rate
     dropout: float = 0.10  # dropout outside of the transformer
-    initializer_name: str = "xavier" # how to initialise new layers
+    initializer_name: str = "xavier"  # how to initialise new layers
+    min_epochs: int = 10
 
     @classmethod
     def from_json(cls, filepath):

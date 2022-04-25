@@ -181,7 +181,7 @@ class Experiment:
                     # f1 not improving on eval
                     early_stop_cnt += 1
 
-                if early_stop_cnt >= self.config.stop_if_no_improvement_n_epochs:
+                if early_stop_cnt >= self.config.stop_if_no_improvement_n_epochs and epoch > self.config.min_epochs:
                     # stop if no improvement
                     logger.info(f"No improvement of eval loss after {early_stop_cnt} epochs, early stopping...")
                     # restore best model
