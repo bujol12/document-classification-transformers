@@ -10,5 +10,7 @@
   "epochs": 20,
   "gradient_accumulation_steps": 32,
   "stop_if_no_improvement_n_epochs": 5,
-  "dataset_name": "bea2019"
+  "dataset_name": "bea2019",
+  "lr": 1e-5,
+  "initializer_name": "normal"
 }
