@@ -11,7 +11,7 @@ from copy import deepcopy
 
 import torch
 
-from transformers import set_seed, get_constant_schedule_with_warmup
+from transformers import set_seed, get_constant_schedule_with_warmup, get_linear_schedule_with_warmup
 from torch.utils.data import DataLoader
 
 from .document_model import DocumentModel
@@ -89,7 +89,8 @@ class Experiment:
         total_train_steps = self.config.epochs * num_update_steps_per_epoch
         warmup_steps = total_train_steps * self.config.warmup_ratio
 
-        lr_scheduler = get_constant_schedule_with_warmup(optimiser, warmup_steps)
+        lr_scheduler = get_linear_schedule_with_warmup(optimiser, num_warmup_steps=warmup_steps,
+                                                       num_training_steps=total_train_steps)
 
         # double check the model is moved to self.device, if not, move it
         if next(self.model.parameters()).device != self.device:
