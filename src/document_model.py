@@ -35,7 +35,6 @@ class DocumentModel(torch.nn.Module):
             config=self.lm_config,
         )
 
-        self.cls_hidden = torch.nn.Linear(self.lm_config.hidden_size, self.lm_config.hidden_size)
         self.cls_dropout = torch.nn.Dropout(p=self.config.dropout)
         self.cls_logit_layer = torch.nn.Linear(self.lm_config.hidden_size, self.config.num_labels)
 
@@ -59,8 +58,7 @@ class DocumentModel(torch.nn.Module):
             inputs_embeds=inputs_embeds,
         )  # last_hidden_state, hidden_states, attentions
 
-        cls_hidden = self.cls_hidden(self.lm_outputs.pooler_output)  # last_hidden_state[:, 0])
-        logits = self.cls_logit_layer(self.cls_dropout(cls_hidden))
+        logits = self.cls_logit_layer(self.cls_dropout(self.lm_outputs.pooler_output))  # last_hidden_state[:, 0])
         token_outputs = self.lm_outputs.last_hidden_state[:, 1:]
 
         return logits, token_outputs
