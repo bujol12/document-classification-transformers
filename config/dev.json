@@ -2,13 +2,13 @@
   "transformers_model_name_or_path": "roberta-base",
   "infer_labels": true,
   "seed": 20,
-  "max_transformer_input_len": 10,
+  "max_transformer_input_len": 512,
   "compose_sentence_representations": false,
   "train_batch_size": 64,
   "eval_batch_size": 128,
   "num_labels": 2,
   "epochs": 100,
-  "gradient_accumulation_steps": 8,
-  "stop_if_no_improvement_n_epochs": 5,
+  "gradient_accumulation_steps": 1,
+  "stop_if_no_improvement_n_epochs": 10,
   "dataset_name": "fce"
 }
