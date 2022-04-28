@@ -4,7 +4,7 @@ import logging
 from transformers import AutoModel, PretrainedConfig, AutoConfig, PreTrainedModel
 from transformers.modeling_outputs import BaseModelOutput
 
-from config import Config
+from .config import Config
 
 logger = logging.getLogger(__name__)
 
