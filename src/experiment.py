@@ -103,6 +103,8 @@ class Experiment:
         best_model_state_dict = OrderedDict(best_model_state_dict)
         weights = self.train_dataset.get_weights().to(self.device) if self.config.num_labels > 1 else None  # for loss function
 
+        logger.info(self.model)
+
         for epoch in range(self.config.epochs):
             logger.info(f"Learning Rate: {lr_scheduler.get_lr()}")
             self.model.train()
@@ -136,7 +138,6 @@ class Experiment:
 
                 # if gradient fully accumulated, update parameters
                 if step % self.config.gradient_accumulation_steps == 0 or step == len(self.train_dataloader) - 1:
-                    print(self.model)
                     optimiser.step()
                     lr_scheduler.step()
                     optimiser.zero_grad()

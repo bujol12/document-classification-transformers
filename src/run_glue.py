@@ -496,6 +496,7 @@ def main():
     # print(train_dataset[0])
     # Initialize our Trainer
     training_args.evaluation_strategy = "epoch"
+    print(model)
     trainer = Trainer(
         model=model,
         args=training_args,
