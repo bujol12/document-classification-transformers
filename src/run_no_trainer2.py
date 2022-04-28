@@ -462,7 +462,8 @@ def main():
             if args.with_tracking:
                 total_loss += loss.detach().float()
             loss = loss / args.gradient_accumulation_steps
-            accelerator.backward(loss)
+            loss.backward()
+            #accelerator.backward(loss)
 
             if step % args.gradient_accumulation_steps == 0 or step == len(train_dataloader) - 1:
                 optimizer.step()
@@ -483,12 +484,6 @@ def main():
                 dim=-1)  # outputs.logits.argmax(dim=-1) if not is_regression else outputs.logits.squeeze()
             predictions, references = accelerator.gather((predictions, batch["labels"]))
             # If we are in a multiprocess environment, the last batch has duplicates
-            if accelerator.num_processes > 1:
-                if step == len(eval_dataloader):
-                    predictions = predictions[: len(eval_dataloader.dataset) - samples_seen]
-                    references = references[: len(eval_dataloader.dataset) - samples_seen]
-                else:
-                    samples_seen += references.shape[0]
             metric.add_batch(
                 predictions=predictions,
                 references=references,
