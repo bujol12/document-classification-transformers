@@ -471,7 +471,7 @@ def main():
                 if resume_step is not None and step < resume_step:
                     completed_steps += 1
                     continue
-            #outputs = model(**batch)
+            # outputs = model(**batch)
             cls_logit, token_outputs = model(**batch)
             loss = calculate_loss(cls_logit, batch["labels"], None, None)
 
@@ -501,8 +501,10 @@ def main():
         model.eval()
         samples_seen = 0
         for step, batch in enumerate(eval_dataloader):
-            outputs = model(**batch)
-            predictions = outputs.logits.argmax(dim=-1) if not is_regression else outputs.logits.squeeze()
+            # outputs = model(**batch)
+            cls_logit, token_outputs = model(**batch)
+            predictions = cls_logit.argmax(
+                dim=-1)  # outputs.logits.argmax(dim=-1) if not is_regression else outputs.logits.squeeze()
             predictions, references = accelerator.gather((predictions, batch["labels"]))
             # If we are in a multiprocess environment, the last batch has duplicates
             if accelerator.num_processes > 1:
