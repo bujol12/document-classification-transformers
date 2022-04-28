@@ -57,7 +57,7 @@ class Experiment:
         # Data loaders
         if self.train_dataset is not None:
             self.train_dataloader = DataLoader(self.train_dataset, collate_fn=self.data_collator,
-                                               batch_size=self.config.train_batch_size)
+                                               batch_size=self.config.train_batch_size, shuffle=True)
 
         if self.eval_dataset is not None:
             self.eval_dataloader = DataLoader(self.eval_dataset, collate_fn=self.data_collator,
