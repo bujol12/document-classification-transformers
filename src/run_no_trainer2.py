@@ -44,6 +44,7 @@ from transformers import (
     SchedulerType,
     default_data_collator,
     get_scheduler,
+    get_linear_schedule_with_warmup
 )
 from transformers.utils import get_full_repo_name
 from transformers.utils.versions import require_version
@@ -385,12 +386,18 @@ def main():
     else:
         args.num_train_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
 
-    lr_scheduler = get_scheduler(
-        name=args.lr_scheduler_type,
-        optimizer=optimizer,
-        num_warmup_steps=args.num_warmup_steps,
-        num_training_steps=args.max_train_steps,
-    )
+    # lr_scheduler = get_scheduler(
+    #     name=args.lr_scheduler_type,
+    #     optimizer=optimizer,
+    #     num_warmup_steps=args.num_warmup_steps,
+    #     num_training_steps=args.max_train_steps,
+    # )
+
+    total_train_steps = 10 * num_update_steps_per_epoch
+    warmup_steps = total_train_steps * 0.10
+
+    lr_scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=warmup_steps,
+                                                   num_training_steps=total_train_steps)
 
     # Prepare everything with our `accelerator`.
     model, optimizer, train_dataloader, eval_dataloader, lr_scheduler = accelerator.prepare(
