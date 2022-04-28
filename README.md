@@ -20,3 +20,6 @@ Then, can recreate it somewhere else using: `conda env create -f env.yml -n diss
 Change config and datasets in the `run_slurm.sh` file
 
 Submit job: `sbatch run_slurm.sh`
+
+## Explore BeerAdvocate data
+``python processed/beer_advocate/explore_dist.py -input_json original/beer_advocate/annotations.json``
