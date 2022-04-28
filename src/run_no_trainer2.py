@@ -16,6 +16,7 @@
 import argparse
 import itertools
 import json
+import torch
 import logging
 import math
 import os
@@ -26,6 +27,8 @@ import datasets
 from datasets import load_dataset, load_metric
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
+from document_model import DocumentModel
+from config import Config
 
 import transformers
 from accelerate import Accelerator
@@ -44,7 +47,6 @@ from transformers import (
 )
 from transformers.utils import get_full_repo_name
 from transformers.utils.versions import require_version
-
 
 logger = logging.getLogger(__name__)
 
@@ -286,12 +288,15 @@ def main():
     # In distributed training, the .from_pretrained methods guarantee that only one local process can concurrently
     # download model & vocab.
     config = AutoConfig.from_pretrained(args.model_name_or_path, num_labels=num_labels, finetuning_task=args.task_name)
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, use_fast=not args.use_slow_tokenizer, add_prefix_space=True)
-    model = AutoModelForSequenceClassification.from_pretrained(
-        args.model_name_or_path,
-        from_tf=bool(".ckpt" in args.model_name_or_path),
-        config=config,
-    )
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, use_fast=not args.use_slow_tokenizer,
+                                              add_prefix_space=True)
+    # model = AutoModelForSequenceClassification.from_pretrained(
+    #     args.model_name_or_path,
+    #     from_tf=bool(".ckpt" in args.model_name_or_path),
+    #     config=config,
+    # )
+    model_config = Config.from_json("config/roberta-pos_imdb.json")
+    model = DocumentModel(model_config)
 
     # Preprocessing the datasets
     if args.task_name is not None:
@@ -306,37 +311,6 @@ def main():
                 sentence1_key, sentence2_key = non_label_column_names[:2]
             else:
                 sentence1_key, sentence2_key = non_label_column_names[0], None
-
-    # Some models have set the order of the labels to use, so let's make sure we do use it.
-    label_to_id = None
-    if (
-        model.config.label2id != PretrainedConfig(num_labels=num_labels).label2id
-        and args.task_name is not None
-        and not is_regression
-    ):
-        # Some have all caps in their config, some don't.
-        label_name_to_id = {k.lower(): v for k, v in model.config.label2id.items()}
-        if list(sorted(label_name_to_id.keys())) == list(sorted(label_list)):
-            logger.info(
-                f"The configuration of the model provided the following label correspondence: {label_name_to_id}. "
-                "Using it!"
-            )
-            label_to_id = {i: label_name_to_id[label_list[i]] for i in range(num_labels)}
-        else:
-            logger.warning(
-                "Your model seems to have been trained with labels, but they don't match the dataset: ",
-                f"model labels: {list(sorted(label_name_to_id.keys()))}, dataset labels: {list(sorted(label_list))}."
-                "\nIgnoring the model labels as a result.",
-            )
-    elif args.task_name is None:
-        label_to_id = {v: i for i, v in enumerate(label_list)}
-
-    if label_to_id is not None:
-        model.config.label2id = label_to_id
-        model.config.id2label = {id: label for label, id in config.label2id.items()}
-    elif args.task_name is not None and not is_regression:
-        model.config.label2id = {l: i for i, l in enumerate(label_list)}
-        model.config.id2label = {id: label for label, id in config.label2id.items()}
 
     padding = "max_length" if args.pad_to_max_length else False
 
@@ -479,6 +453,14 @@ def main():
             starting_epoch = resume_step // len(train_dataloader)
             resume_step -= starting_epoch * len(train_dataloader)
 
+    def calculate_loss(cls_logit, cls_targets, token_outputs, token_targets, weights=None):
+        assert len(set(cls_targets.tolist())) <= 2  # only support binary for now
+        criterion = torch.nn.CrossEntropyLoss(weight=weights)
+
+        loss = criterion(cls_logit, cls_targets)
+
+        return loss
+
     for epoch in range(starting_epoch, args.num_train_epochs):
         model.train()
         if args.with_tracking:
@@ -489,8 +471,11 @@ def main():
                 if resume_step is not None and step < resume_step:
                     completed_steps += 1
                     continue
-            outputs = model(**batch)
-            loss = outputs.loss
+            #outputs = model(**batch)
+            cls_logit, token_outputs = model(**batch)
+            loss = calculate_loss(cls_logit, batch["labels"], None, None)
+
+            # loss = outputs.loss
             # We keep track of the loss at each epoch
             if args.with_tracking:
                 total_loss += loss.detach().float()
@@ -505,7 +490,7 @@ def main():
 
             if isinstance(checkpointing_steps, int):
                 if completed_steps % checkpointing_steps == 0:
-                    output_dir = f"step_{completed_steps }"
+                    output_dir = f"step_{completed_steps}"
                     if args.output_dir is not None:
                         output_dir = os.path.join(args.output_dir, output_dir)
                     accelerator.save_state(output_dir)
