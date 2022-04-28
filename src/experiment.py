@@ -103,10 +103,9 @@ class Experiment:
         best_model_state_dict = OrderedDict(best_model_state_dict)
         weights = self.train_dataset.get_weights().to(self.device) if self.config.num_labels > 1 else None  # for loss function
 
-        logger.info(self.model)
 
         for epoch in range(self.config.epochs):
-            logger.info(f"Learning Rate: {lr_scheduler.get_lr()}")
+            logger.info(f"Epoch {epoch} Learning Rate: {lr_scheduler.get_last_lr()}")
             self.model.train()
 
             for step, batch in enumerate(self.train_dataloader):
@@ -141,8 +140,6 @@ class Experiment:
                     optimiser.step()
                     lr_scheduler.step()
                     optimiser.zero_grad()
-
-                    logger.info(f"Learning Rate: {lr_scheduler.get_last_lr()}")
 
                 # free up GPU
                 keys = moved_batch.keys()
