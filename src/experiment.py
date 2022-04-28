@@ -142,7 +142,7 @@ class Experiment:
                     lr_scheduler.step()
                     optimiser.zero_grad()
 
-                    logger.info(f"Learning Rate: {lr_scheduler.get_lr()}")
+                    logger.info(f"Learning Rate: {lr_scheduler.get_last_lr()}")
 
                 # free up GPU
                 keys = moved_batch.keys()
