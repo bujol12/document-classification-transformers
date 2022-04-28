@@ -105,7 +105,7 @@ class Experiment:
 
 
         for epoch in range(self.config.epochs):
-            logger.info(f"Epoch {epoch} Learning Rate: {lr_scheduler.get_last_lr()}")
+            logger.info(f"Epoch {epoch + 1} Learning Rate: {lr_scheduler.get_last_lr()}")
             self.model.train()
 
             for step, batch in enumerate(self.train_dataloader):
