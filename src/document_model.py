@@ -5,6 +5,7 @@ from transformers import AutoModel, PretrainedConfig, AutoConfig, PreTrainedMode
 from transformers.modeling_outputs import BaseModelOutput
 
 from .config import Config
+from .soft_attention_layer import SoftAttentionLayer
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +36,14 @@ class DocumentModel(torch.nn.Module):
             config=self.lm_config,
         )
 
+        # Transformer CLS token prediction (document-level)
         self.cls_dropout = torch.nn.Dropout(p=self.config.dropout)
         self.cls_logit_layer = torch.nn.Linear(self.lm_config.hidden_size, self.config.num_labels)
 
+        # Soft Attention layer
+        self.soft_attention_layer = SoftAttentionLayer(self.config, self.lm_config)
+
+        # Initialise layers
         self.__init_weights(self.cls_dropout)
         self.__init_weights(self.cls_logit_layer)
 
@@ -57,10 +63,18 @@ class DocumentModel(torch.nn.Module):
             inputs_embeds=inputs_embeds,
         )  # last_hidden_state, hidden_states, attentions
 
-        logits = self.cls_logit_layer(self.cls_dropout(self.lm_outputs.pooler_output))  # last_hidden_state[:, 0])
-        token_outputs = self.lm_outputs.last_hidden_state[:, 1:]
+        token_transformer_outputs = self.lm_outputs.last_hidden_state[:, 1:]
 
-        return logits, token_outputs
+        # Apply soft attention methods
+        if self.config.soft_attention:
+            document_logit, token_outputs = self.soft_attention_layer(token_transformer_outputs, attention_mask[:, 1:])
+
+        # CLS document prediction
+        if self.config.predict_document_label_from_cls:
+            document_logit = self.cls_logit_layer(
+                self.cls_dropout(self.lm_outputs.pooler_output))  # last_hidden_state[:, 0])
+
+        return document_logit, token_outputs
 
     @staticmethod
     def get_transformers_config(config: Config) -> PretrainedConfig:
