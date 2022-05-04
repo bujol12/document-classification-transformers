@@ -67,14 +67,15 @@ class DocumentModel(torch.nn.Module):
 
         # Apply soft attention methods
         if self.config.soft_attention:
-            document_logit, token_outputs = self.soft_attention_layer(token_transformer_outputs, attention_mask[:, 1:])
+            self.document_logits, token_outputs = self.soft_attention_layer(token_transformer_outputs,
+                                                                            attention_mask[:, 1:])
 
         # CLS document prediction
         if self.config.predict_document_label_from_cls:
-            document_logit = self.cls_logit_layer(
+            self.document_logits = self.cls_logit_layer(
                 self.cls_dropout(self.lm_outputs.pooler_output))  # last_hidden_state[:, 0])
 
-        return document_logit, token_outputs
+        return self.document_logits, token_outputs
 
     @staticmethod
     def get_transformers_config(config: Config) -> PretrainedConfig:
@@ -97,3 +98,34 @@ class DocumentModel(torch.nn.Module):
         if isinstance(m, torch.nn.Linear):
             self.initializer(m.weight)
             torch.nn.init.zeros_(m.bias)
+
+    def loss(self, document_targets, weights=None):
+        assert len(set(document_targets.tolist())) <= 2  # only support binary for now
+
+        # Calculate loss on the document-level prediction
+        document_logits = self.document_logits
+
+        if self.config.num_labels == 1:
+            # MSE
+            criterion = torch.nn.MSELoss()
+            document_targets = document_targets.to(torch.float32)[:, None]
+            document_logits = torch.nn.Sigmoid()(self.document_logits)
+        elif self.config.num_labels == 2:
+            criterion = torch.nn.BCEWithLogitsLoss(weight=weights)
+            document_targets = torch.nn.functional.one_hot(document_targets, num_classes=self.config.num_labels).to(
+                torch.float32).to(document_targets.device)
+        else:
+            criterion = torch.nn.CrossEntropyLoss(weight=weights)
+
+        document_loss = criterion(document_logits, document_targets)
+
+        # Calculate loss on the token-level prediction
+        token_loss = 0.0
+        if self.config.token_loss_gamma != 0.0:
+            if self.config.soft_attention:
+                token_loss += self.soft_attention_layer.loss(document_targets)
+            else:
+                raise Exception("don't support token loss without soft attention")
+
+        loss = document_loss + self.config.token_loss_gamma * token_loss
+        return loss

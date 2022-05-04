@@ -114,13 +114,7 @@ class Experiment:
                 moved_batch["input_ids"] = batch["input_ids"].to(self.device)
                 moved_batch["attention_mask"] = batch["attention_mask"].to(self.device)
 
-                cls_logit, token_outputs = self.model(**moved_batch)
-
-                # remove immediately
-                del moved_batch["input_ids"]
-                del moved_batch["attention_mask"]
-                gc.collect()
-                torch.cuda.empty_cache()
+                document_logits, token_outputs = self.model(**moved_batch)
 
                 # move labels to calculate loss
                 moved_batch["label_ids"] = batch["label_ids"].to(self.device)
@@ -129,8 +123,7 @@ class Experiment:
                 # TODO: token outputs can be smaller than batch["label_ids"]
                 #  -> right-pad with 0s for tokens where batch["label_ids"] != -100
                 #  (-100 is padding to ensure all batch label_ids have the same length)
-                loss = self.__calculate_loss(cls_logit, moved_batch["label"], token_outputs, moved_batch["label_ids"],
-                                             weights=weights)
+                loss = self.model.loss(moved_batch["label"], weights=weights)
                 loss = loss / self.config.gradient_accumulation_steps
 
                 loss.backward()
@@ -146,7 +139,7 @@ class Experiment:
                 for k in list(keys):
                     del moved_batch[k]
 
-                del cls_logit
+                del document_logits
                 del token_outputs
                 del moved_batch
                 del loss
@@ -222,30 +215,24 @@ class Experiment:
             moved_batch["attention_mask"] = batch["attention_mask"].to(self.device)
 
             with torch.no_grad():
-                cls_probs, token_outputs = self.model(**moved_batch)
-
-                # remove immediately
-                del moved_batch["input_ids"]
-                del moved_batch["attention_mask"]
-                gc.collect()
-                torch.cuda.empty_cache()
+                document_logits, token_outputs = self.model(**moved_batch)
 
                 # move labels to calculate loss
                 moved_batch["label_ids"] = batch["label_ids"].to(self.device)
                 moved_batch["label"] = batch["label"].to(self.device)
 
-                total_loss += len(moved_batch["label"]) * self.__calculate_loss(cls_probs, moved_batch["label"],
-                                                                                token_outputs,
-                                                                                moved_batch["label_ids"]).detach().cpu()
-            document_predictions += cls_probs.detach().cpu().tolist()
+                total_loss += len(moved_batch["label"]) * self.model.loss(moved_batch["label"]).detach().cpu()
+            document_predictions += document_logits.detach().cpu().tolist()
             true_document_labels += moved_batch["label"].detach().cpu().tolist()
+            token_predictions += token_outputs.detach().cpu().tolist()
+            true_token_labels += moved_batch["label_ids"].detach().cpu().tolist()
 
             # free up GPU
             keys = moved_batch.keys()
             for k in list(keys):
                 del moved_batch[k]
 
-            del cls_probs
+            del document_logits
             del token_outputs
             del moved_batch
             gc.collect()
@@ -253,32 +240,6 @@ class Experiment:
 
         return Metrics(torch.tensor(document_predictions), torch.tensor(true_document_labels),
                        loss=total_loss.item() / total_len)
-
-    def __calculate_loss(self, cls_logit, cls_targets, token_outputs, token_targets, weights=None):
-        """
-        Calculate the loss function given the document and token predictions. TOOD: add token-based loss
-        :param cls_logit:
-        :param cls_targets:
-        :param token_outputs:
-        :param token_targets:
-        :return:
-        """
-        assert len(set(cls_targets.tolist())) <= 2  # only support binary for now
-        if self.config.num_labels == 1:
-            # MSE
-            criterion = torch.nn.MSELoss()
-            cls_targets = cls_targets.to(torch.float32)[:, None]
-            cls_logit = torch.nn.Sigmoid()(cls_logit)
-        elif self.config.num_labels == 2:
-            criterion = torch.nn.BCEWithLogitsLoss(weight=weights)
-            cls_targets = torch.nn.functional.one_hot(cls_targets, num_classes=self.config.num_labels).to(
-                torch.float32).to(self.device)
-        else:
-            criterion = torch.nn.CrossEntropyLoss(weight=weights)
-
-        loss = criterion(cls_logit, cls_targets)
-
-        return loss
 
     def save_model(self, path: str):
         """

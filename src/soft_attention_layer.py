@@ -41,9 +41,9 @@ class SoftAttentionLayer(torch.nn.Module):
         :param attention_mask: bxn show which tokens to attend to
         :return: (sentence_logit, token_attention_scores)
         """
-
+        self.transformers_attention_mask = attention_mask
         # calculate lengths of inputs, used for masking out later
-        inp_lengths = (attention_mask != 0).sum(dim=1)
+        self.inp_lengths = (self.transformers_attention_mask != 0).sum(dim=1)
 
         transfomers_token_outputs_after_dropout = self.soft_attention_dropout_layer(transformer_token_outputs)
 
@@ -52,18 +52,18 @@ class SoftAttentionLayer(torch.nn.Module):
             self.soft_attention_evidence_layer(transfomers_token_outputs_after_dropout))
 
         # \tilde{e_i} = W_{\tilde{e}}*e_i + b_{\tilde{e}}; \tilde{a_i} = \sigma{\tilde{e_i}}
-        attention_scores = self.soft_attention_activation(
+        self.attention_scores = self.soft_attention_activation(
             self.soft_attention_scores_layer(attention_evidence).view(transformer_token_outputs.size()[:2]))
 
         # mask out scores after end of the input
-        attention_scores = torch.where(
-            self.__sequence_mask(inp_lengths, maxlen=attention_mask.shape[1]),
-            attention_scores,
-            torch.zeros_like(attention_scores)
+        self.attention_scores = torch.where(
+            self.__sequence_mask(self.inp_lengths, maxlen=self.transformers_attention_mask.shape[1]),
+            self.attention_scores,
+            torch.zeros_like(self.attention_scores)
         )
 
         # a_i (normalise scores)
-        attention_weights = attention_scores / torch.sum(attention_scores, dim=1, keepdim=True)
+        attention_weights = self.attention_scores / torch.sum(self.attention_scores, dim=1, keepdim=True)
 
         ###### Document Representation Building #####
 
@@ -77,12 +77,12 @@ class SoftAttentionLayer(torch.nn.Module):
             self.document_repr_hidden_layer(post_attention_document_representation))
 
         # Obtain final document scores
-        document_logits = self.document_preds_layer(document_hidden_layer_outputs)
-        document_logits = document_logits.view(
+        self.document_logits = self.document_preds_layer(document_hidden_layer_outputs)
+        self.document_logits = self.document_logits.view(
             [transformer_token_outputs.shape[0], self.config.num_labels]
         )
 
-        return document_logits, attention_scores
+        return self.document_logits, self.attention_scores
 
     def __init_weights(self, m):
         if self.config.initializer_name == "normal":
@@ -113,3 +113,40 @@ class SoftAttentionLayer(torch.nn.Module):
 
         mask.type(dtype)
         return mask
+
+    def loss(self, document_targets):
+        """
+        :param document_targets: labels of the documents
+        :return:
+        """
+        # encourage the model to focus on some, but not all tokens by optimising
+        # minimum attention score to be close to 0
+
+        min_attentions, _ = torch.min(
+            torch.where(
+                self.__sequence_mask(self.inp_lengths, maxlen=self.transformers_attention_mask.shape[1]),
+                self.attention_scores,
+                torch.zeros_like(self.attention_scores) + 1e6,
+            ),
+            dim=1,
+        )
+        l2 = torch.mean(torch.square(min_attentions.view(-1)))
+
+        # encourage the model to have some positive (=1) token labels
+        max_attentions, _ = torch.max(
+            torch.where(
+                self.__sequence_mask(self.inp_lengths, maxlen=self.transformers_attention_mask.shape[1]),
+                self.attention_scores,
+                torch.zeros_like(self.attention_scores) - 1e6,
+            ),
+            dim=1,
+        )
+        l3 = torch.mean(
+            torch.square(max_attentions.view(-1) - torch.ones_like(max_attentions).to(max_attentions.device)))
+
+        # if the document-level label is positive, encourage more (count of) positive attention scores
+        # TODO: how? Mean?
+
+        l4 = 0.0
+
+        return l2 + l3 + l4
