@@ -225,9 +225,11 @@ class Experiment:
 
             document_predictions += document_logits.detach().cpu().tolist()
             true_document_labels += moved_batch["label"].detach().cpu().tolist()
-            token_predictions += self.__convert_token_preds_to_words(
-                token_outputs.detach().cpu().tolist(), batch)  # convert token preds to word preds by taking max
-            true_token_labels += moved_batch["label_ids"].detach().cpu().tolist()
+
+            if token_outputs is not None:
+                token_predictions += self.__convert_token_preds_to_words(
+                    token_outputs.detach().cpu().tolist(), batch)  # convert token preds to word preds by taking max
+                true_token_labels += moved_batch["label_ids"].detach().cpu().tolist()
 
             # free up GPU
             del document_logits
@@ -237,8 +239,8 @@ class Experiment:
             torch.cuda.empty_cache()
 
         return Metrics(torch.tensor(document_predictions), torch.tensor(true_document_labels),
-                       loss=total_loss.item() / total_len, token_true=torch.tensor(true_token_labels),
-                       token_preds=torch.tensor(token_predictions))
+                       loss=total_loss.item() / total_len, token_true=true_token_labels,
+                       token_preds=token_predictions)
 
     def save_model(self, path: str):
         """

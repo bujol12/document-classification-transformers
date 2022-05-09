@@ -64,6 +64,7 @@ class DocumentModel(torch.nn.Module):
         )  # last_hidden_state, hidden_states, attentions
 
         token_transformer_outputs = self.lm_outputs.last_hidden_state[:, 1:]
+        token_outputs = None
 
         # Apply soft attention methods
         if self.config.soft_attention:

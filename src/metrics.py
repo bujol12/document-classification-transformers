@@ -46,7 +46,10 @@ class Metrics:
         self.loss = loss
 
         # token level, if present
-        if token_preds is not None and token_true is not None:
+        if token_preds != [] and token_true != []:
+            token_preds = torch.tensor(token_preds)
+            token_true = torch.tensor(token_true)
+
             # always 0-1 only, padding tokens and/or split ones have labels set to -100 while processing dataset
             self.token_true = token_true.view(-1)
 
