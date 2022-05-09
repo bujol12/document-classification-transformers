@@ -230,14 +230,10 @@ class Experiment:
             true_token_labels += moved_batch["label_ids"].detach().cpu().tolist()
 
             # free up GPU
-            keys = moved_batch.keys()
-            for k in list(keys):
-                del moved_batch[k]
-
             del document_logits
             del token_outputs
             del moved_batch
-            gc.collect()
+
             torch.cuda.empty_cache()
 
         return Metrics(torch.tensor(document_predictions), torch.tensor(true_document_labels),

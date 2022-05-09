@@ -24,7 +24,7 @@ class Config:
         "output_attentions": True
     })  # specify overrides to transformers config
     max_transformer_input_len: int = 512  # maximum len of tokenised input to transformer
-    predict_document_label_from_cls: bool = False  # use the prediction of document-level label from the CLS token
+    predict_document_label_from_cls: bool = True  # use the prediction of document-level label from the CLS token
 
     # Soft Attention Config
     soft_attention: bool = False  # apply the standard soft attention layer from Bujel 2021
@@ -37,7 +37,7 @@ class Config:
     seed: int = 22
     label_all_tokens: bool = False  # if False, only first part of token has a label, with rest = -100
     compose_sentence_representations: bool = False  # if set true, apply transformer to each sentence separately. If false, apply transformer to the whole document
-    min_epochs: int = 10  # min epochs to run for
+    min_epochs: int = 10  # min epochs to run for, ignoring early stopping
 
     # Hyperparameters
     optimiser: str = "adamW"  # name of the optimiser to be used
@@ -45,7 +45,7 @@ class Config:
     opt_eps: float = 1e-7  # eps of the optimiser
     warmup_ratio: float = 0.06  # % number of steps for the optimiser to warmup the learning rate
     dropout: float = 0.10  # dropout outside of the transformer
-    initializer_name: str = "xavier"  # how to initialise new layers
+    initializer_name: str = "normal"  # how to initialise new layers
     weighted_loss: bool = False  # use weighted loss fucntion to tackle class imbalance
     token_loss_gamma: float = 0.0 # gamma parameter of the weight of the loss function for token-level calculations
 
