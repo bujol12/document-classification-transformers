@@ -47,7 +47,7 @@ class Config:
     dropout: float = 0.10  # dropout outside of the transformer
     initializer_name: str = "xavier"  # how to initialise new layers
     weighted_loss: bool = False  # use weighted loss fucntion to tackle class imbalance
-    token_loss_gamma: float = 0.1 # gamma parameter of the weight of the loss function for token-level calculations
+    token_loss_gamma: float = 0.0 # gamma parameter of the weight of the loss function for token-level calculations
 
     @classmethod
     def from_json(cls, filepath):

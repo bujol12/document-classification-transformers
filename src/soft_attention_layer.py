@@ -116,7 +116,7 @@ class SoftAttentionLayer(torch.nn.Module):
 
     def loss(self, document_targets):
         """
-        :param document_targets: labels of the documents
+        :param document_targets: batch_size labels of the documents
         :return:
         """
         # encourage the model to focus on some, but not all tokens by optimising
@@ -132,7 +132,7 @@ class SoftAttentionLayer(torch.nn.Module):
         )
         l2 = torch.mean(torch.square(min_attentions.view(-1)))
 
-        # encourage the model to have some positive (=1) token labels
+        # encourage the model to have some positive (=1) token labels if overall document label is positive
         max_attentions, _ = torch.max(
             torch.where(
                 self.__sequence_mask(self.inp_lengths, maxlen=self.transformers_attention_mask.shape[1]),
@@ -141,12 +141,8 @@ class SoftAttentionLayer(torch.nn.Module):
             ),
             dim=1,
         )
+
         l3 = torch.mean(
-            torch.square(max_attentions.view(-1) - torch.ones_like(max_attentions).to(max_attentions.device)))
+            torch.square(max_attentions.view(-1) - document_targets.view(-1)))
 
-        # if the document-level label is positive, encourage more (count of) positive attention scores
-        # TODO: how? Mean?
-
-        l4 = 0.0
-
-        return l2 + l3 + l4
+        return l2 + l3

@@ -222,9 +222,11 @@ class Experiment:
                 moved_batch["label"] = batch["label"].to(self.device)
 
                 total_loss += len(moved_batch["label"]) * self.model.loss(moved_batch["label"]).detach().cpu()
+
             document_predictions += document_logits.detach().cpu().tolist()
             true_document_labels += moved_batch["label"].detach().cpu().tolist()
-            token_predictions += token_outputs.detach().cpu().tolist()
+            token_predictions += self.__convert_token_preds_to_words(
+                token_outputs.detach().cpu().tolist(), batch)  # convert token preds to word preds by taking max
             true_token_labels += moved_batch["label_ids"].detach().cpu().tolist()
 
             # free up GPU
@@ -239,7 +241,8 @@ class Experiment:
             torch.cuda.empty_cache()
 
         return Metrics(torch.tensor(document_predictions), torch.tensor(true_document_labels),
-                       loss=total_loss.item() / total_len)
+                       loss=total_loss.item() / total_len, token_true=torch.tensor(true_token_labels),
+                       token_preds=torch.tensor(token_predictions))
 
     def save_model(self, path: str):
         """
@@ -265,3 +268,33 @@ class Experiment:
         :return:
         """
         self.config.to_json(os.path.join(self.experiment_folder, "config.json"))
+
+    def __convert_token_preds_to_words(self, token_preds, dataset):
+        """
+        Convert token level predictions to predictions on words by taking maximum of each word score
+        (split across many tokens)
+        :param token_preds:
+        :param dataset:
+        :return:
+        """
+        new_token_preds = []
+
+        # Go through the batch
+        for i, doc in enumerate(token_preds):
+            # score for each word initially is 0
+            word_preds = torch.zeros(max(dataset['word_ids'][i]) + 1, dtype=torch.float)
+
+            # Iterate through tokens
+            for j in range(len(doc)):
+                if dataset['word_ids'][i][j] == -1:
+                    # skip special tokens that do not map to words
+                    continue
+
+                # score for word is the maximum of prev max and current token score
+                word_preds[dataset['word_ids'][i][j]] = max(
+                    word_preds[dataset['word_ids'][i][j]], doc[j])
+
+            # assign the same score to the tokens everywhere in the same word
+            new_token_preds.append([word_preds[dataset['word_ids'][i][j]] if
+                                    dataset['word_ids'][i][j] != -1 else -100 for j in range(len(doc))])
+        return new_token_preds

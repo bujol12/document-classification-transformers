@@ -110,7 +110,7 @@ class JsonDocumentDataset(Dataset):
         """
         Get idx-th example from the tokenised dataset
         :param idx:
-        :return: dict {'attention_mask': [], 'input_ids': [], 'label_ids': [], 'label': ?}
+        :return: dict {'attention_mask': [], 'input_ids': [], 'label_ids': [], 'label': ?, 'word_ids': []}
         """
         res = {}
         for k, v in self.tokenised_input.items():
@@ -132,18 +132,27 @@ class JsonDocumentDataset(Dataset):
             # tokenise each document separately
 
             # flatten the sentences into a single list representing tokens in document
-            flat_input_tokens = []
+            self.flat_input_tokens = []
             for doc in self.input_tokens:
-                flat_input_tokens.append(list(itertools.chain(*doc)))
+                self.flat_input_tokens.append(list(itertools.chain(*doc)))
 
             # tokenise
-            self.tokenised_input = self.tokeniser(flat_input_tokens, is_split_into_words=True,
+            self.tokenised_input = self.tokeniser(self.flat_input_tokens, is_split_into_words=True,
                                                   max_length=self.config.max_transformer_input_len,
                                                   padding="max_length",
                                                   truncation=True)
 
+            # assign token-level labels
             self.tokenised_input["label_ids"] = self.__generate_tokenised_labels()
+
+            # assign document-level labels
             self.tokenised_input["label"] = self.document_labels
+
+            # copy over word ids
+            self.tokenised_input["word_ids"] = [
+                [word_idx if word_idx is not None else -1 for word_idx in self.tokenised_input.word_ids(batch_index=i)]
+                for i in
+                range(len(self.tokenised_input["label"]))]
 
     def __generate_tokenised_labels(self):
         """
@@ -190,10 +199,9 @@ class JsonDocumentDataset(Dataset):
     def own_default_collator(features: List[Any]) -> Dict[str, Any]:
         """
         Similar to HuggingFace default_data_collator, but does not have special handling for labels_ids etc
-        Truncate input that's too long
+        Truncate input that's too long, but leave labels of original length
         :return:
         """
-
         if not isinstance(features[0], (dict, BatchEncoding)):
             features = [vars(f) for f in features]
         first = features[0]
