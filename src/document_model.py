@@ -128,5 +128,9 @@ class DocumentModel(torch.nn.Module):
                 token_loss += self.soft_attention_layer.loss(document_targets)
             else:
                 raise Exception("don't support token loss without soft attention")
+
+        logger.info(f"Document-level loss: {document_loss}")
+        logger.info(f"Token-level loss: {token_loss * self.config.token_loss_gamma}")
+
         loss = document_loss + self.config.token_loss_gamma * token_loss
         return loss

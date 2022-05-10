@@ -5,6 +5,7 @@ import datetime
 import os
 import json
 import time
+import random
 
 from collections import OrderedDict
 from copy import deepcopy
@@ -97,7 +98,7 @@ class Experiment:
             self.model.to(self.device)
 
         # training loop
-        best_eval_f1 = None
+        best_eval_loss = None
         early_stop_cnt = 0
         best_model_state_dict = {k: deepcopy(v.to('cpu')) for k, v in self.model.state_dict().items()}
         best_model_state_dict = OrderedDict(best_model_state_dict)
@@ -157,26 +158,26 @@ class Experiment:
             print()
 
             if self.config.stop_if_no_improvement_n_epochs != -1:
-                if best_eval_f1 is None:
+                if best_eval_loss is None:
                     # first epoch
-                    best_eval_f1 = eval_performance.f1
+                    best_eval_loss = eval_performance.loss
                     early_stop_cnt = 0
 
                     # move best model to CPU and cache
                     best_model_state_dict = {k: deepcopy(v.to('cpu')) for k, v in self.model.state_dict().items()}
                     best_model_state_dict = OrderedDict(best_model_state_dict)
 
-                elif best_eval_f1 < eval_performance.f1:
-                    # f1 improving
+                elif best_eval_loss < eval_performance.loss:
+                    # loss improving
                     early_stop_cnt = 0
-                    best_eval_f1 = eval_performance.f1
+                    best_eval_loss = eval_performance.loss
 
                     # move best model to CPU and cache
                     best_model_state_dict = {k: deepcopy(v.to('cpu')) for k, v in self.model.state_dict().items()}
                     best_model_state_dict = OrderedDict(best_model_state_dict)
 
                 else:
-                    # f1 not improving on eval
+                    # loss not improving on eval
                     early_stop_cnt += 1
 
                 if early_stop_cnt >= self.config.stop_if_no_improvement_n_epochs and epoch > self.config.min_epochs:
@@ -229,6 +230,10 @@ class Experiment:
             if token_outputs is not None:
                 token_predictions += self.__convert_token_preds_to_words(
                     token_outputs.detach().cpu().tolist(), batch)  # convert token preds to word preds by taking max
+                # TODO:
+                #  1) zero-out tru labels_ids for negative documents;
+                #  2) skip all negative documents
+                #  3) evaluate as-is
                 true_token_labels += moved_batch["label_ids"].detach().cpu().tolist()
 
             # free up GPU
@@ -237,6 +242,12 @@ class Experiment:
             del moved_batch
 
             torch.cuda.empty_cache()
+
+        if true_token_labels != []:
+            rand_idx = random.randint(0, len(true_token_labels))
+            logger.info(f"Sample Idx = {rand_idx}")
+            logger.info(f"token predictions: {token_predictions[rand_idx]}")
+            logger.info(f"true token labels: {true_token_labels[rand_idx]}")
 
         return Metrics(torch.tensor(document_predictions), torch.tensor(true_document_labels),
                        loss=total_loss.item() / total_len, token_true=true_token_labels,
