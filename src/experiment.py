@@ -103,7 +103,7 @@ class Experiment:
         best_model_state_dict = {k: deepcopy(v.to('cpu')) for k, v in self.model.state_dict().items()}
         best_model_state_dict = OrderedDict(best_model_state_dict)
         weights = self.train_dataset.get_weights().to(
-            self.device) if self.config.num_labels > 1 else None  # for loss function
+            self.device) if self.config.num_labels > 1 and self.config.weighted_loss else None  # for loss function
 
         for epoch in range(self.config.epochs):
             logger.info(f"Epoch {epoch + 1} Learning Rate: {lr_scheduler.get_last_lr()}")
