@@ -12,5 +12,9 @@
   "stop_if_no_improvement_n_epochs": 5,
   "dataset_name": "bea2019",
   "lr": 1e-5,
-  "initializer_name": "normal"
+  "initializer_name": "normal",
+  "weighted_loss": true,
+  "soft_attention": true,
+  "predict_document_label_from_cls": false,
+  "token_loss_gamma": 1.0
 }
