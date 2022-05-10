@@ -47,15 +47,21 @@ class Metrics:
 
         # token level, if present
         if token_preds != [] and token_true != []:
+            # pad all true tokens to be of the same length (with -100)
+            token_true = torch.nn.utils.rnn.pad_sequence(
+                [torch.tensor(labels) for labels in token_true], batch_first=True, padding_value=-100)
+
             token_preds = torch.tensor(token_preds)
-            token_true = torch.tensor(token_true)
 
             # always 0-1 only, padding tokens and/or split ones have labels set to -100 while processing dataset
             self.token_true = token_true.view(-1)
 
-            # pad with 0s for when the sequence length was longer than the maximum model length
-            self.token_preds = torch.nn.functional.pad(token_preds,
-                                                       (0, token_true.shape[-1] - token_preds.shape[-1])).view(-1)
+            if token_true.shape[-1] - token_preds.shape[-1] > 0:
+                # pad with 0s for when the sequence length was longer than the maximum model length
+                self.token_preds = torch.nn.functional.pad(token_preds,
+                                                           (0, token_true.shape[-1] - token_preds.shape[-1])).view(-1)
+            else:
+                self.token_preds = token_preds
 
             # ignore tokens with -100
             assert len(self.token_true) == len(self.token_preds)
@@ -67,7 +73,6 @@ class Metrics:
                 token_true.append(self.token_true[i].item())
                 token_preds.append(self.token_preds[i].item())
 
-            print(token_preds)
             token_pred_labels = torch.round(torch.tensor(token_preds))
 
             self.token_acc = accuracy_score(token_true, token_pred_labels)
