@@ -62,8 +62,9 @@ class SoftAttentionLayer(torch.nn.Module):
             torch.zeros_like(self.attention_scores)
         )
 
-        # a_i (normalise scores)
-        attention_weights = self.attention_scores / torch.sum(self.attention_scores, dim=1, keepdim=True)
+        # quadratic attention + a_i (normalise scores)
+        attention_weights = torch.square(self.attention_scores)
+        attention_weights = attention_weights / torch.sum(attention_weights, dim=1, keepdim=True)
 
         ###### Document Representation Building #####
 
