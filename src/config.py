@@ -47,7 +47,11 @@ class Config:
     dropout: float = 0.10  # dropout outside of the transformer
     initializer_name: str = "normal"  # how to initialise new layers
     weighted_loss: bool = False  # use weighted loss fucntion to tackle class imbalance
-    token_loss_gamma: float = 0.0 # gamma parameter of the weight of the loss function for token-level calculations
+    token_loss_gamma: float = 0.0  # gamma parameter of the weight of the loss function for token-level calculations
+
+    regularisation_loss_gamma = 0.1  # regularisation of the token attention scores
+    mean_token_loss_gamma = 0.0  # mean of token values should be close to document label
+    min_max_token_loss_gamma = 1.0  # min/max should be close to document label
 
     @classmethod
     def from_json(cls, filepath):

@@ -145,4 +145,12 @@ class SoftAttentionLayer(torch.nn.Module):
         l3 = torch.mean(
             torch.square(max_attentions.view(-1) - document_targets.view(-1)))
 
-        return l2 + l3
+        #### Positive sentences should have means closer to 1 than 0
+        l4 = torch.mean(
+            torch.square(torch.sum(self.attention_scores, dim=1) / self.inp_lengths - document_targets.view(-1)))
+
+        # l2 regularisation
+        l5 = torch.mean(torch.sum(torch.square(self.attention_scores), dim=1) / self.inp_lengths)
+
+        return self.config.min_max_token_loss_gamma * (
+                    l2 + l3) + self.config.mean_token_loss_gamma * l4 + self.config.regularisation_loss_gamma * l5
