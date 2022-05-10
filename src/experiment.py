@@ -244,9 +244,9 @@ class Experiment:
             torch.cuda.empty_cache()
 
         if true_token_labels != []:
-            rand_idx = random.randint(0, len(true_token_labels))
+            rand_idx = random.randint(0, len(true_token_labels) - 1)
             logger.info(f"Sample Idx = {rand_idx}")
-            logger.info(f"token predictions: {[torch.round(pred).item() for pred in token_predictions[rand_idx]]}")
+            logger.info(f"token predictions: {[float(pred) for pred in token_predictions[rand_idx]]}")
             logger.info(f"true token labels: {true_token_labels[rand_idx]}")
 
         return Metrics(torch.tensor(document_predictions), torch.tensor(true_document_labels),
