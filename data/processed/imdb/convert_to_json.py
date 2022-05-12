@@ -51,12 +51,18 @@ def main():
     pos_output_dict = deepcopy(output_dict)
     neg_output_dict = deepcopy(output_dict)
 
+    sum_evidence_tokens = 0
+    total_tokens = 0
     for doc in pos_output_dict["documents"]:
         if doc["document_label"] == 0:  # zero-out negative ones
             doc["token_labels"] = [[0 for _ in sent] for sent in doc["token_labels"]]
 
         # test if labels for tokens are of the same size and tokens themselves
         for sent_id in range(len(doc["token_labels"])):
+            if doc["document_label"] == 1:
+                sum_evidence_tokens += sum(doc["token_labels"][sent_id])
+                total_tokens += len(doc["token_labels"][sent_id])
+
             if len(doc["token_labels"][sent_id]) != len(doc["tokens"][sent_id]):
                 print("non-matching sizes!")
                 print("tokens_size:", len(doc["tokens"][sent_id]))
@@ -65,12 +71,22 @@ def main():
                 print(sent_id)
                 return
 
+    print(f"Average Evidence Pct: {round(100* sum_evidence_tokens / total_tokens)}% (Pos Dataset)")
+
+    sum_evidence_tokens = 0
+    total_tokens = 0
     for doc in neg_output_dict["documents"]:
         if doc["document_label"] == 1:  # zero-out positive ones
             doc["document_label"] = 0
             doc["token_labels"] = [[0 for _ in sent] for sent in doc["token_labels"]]
         else:  # swap labels around so that negative becomes positive
             doc["document_label"] = 1
+            for sent in doc["token_labels"]:
+                sum_evidence_tokens += sum(sent)
+                total_tokens += len(sent)
+
+
+    print(f"Average Evidence Pct: {round(100* sum_evidence_tokens / total_tokens)}% (Neg Dataset)")
 
     with open(args.pos_out, 'w') as f:
         json.dump(pos_output_dict, f)

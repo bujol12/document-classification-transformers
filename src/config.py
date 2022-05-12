@@ -48,10 +48,11 @@ class Config:
     initializer_name: str = "normal"  # how to initialise new layers
     weighted_loss: bool = False  # use weighted loss fucntion to tackle class imbalance
     token_loss_gamma: float = 0.0  # gamma parameter of the weight of the loss function for token-level calculations
-
-    regularisation_loss_gamma: float = 0.1  # regularisation of the token attention scores
+    regularisation_loss_gamma: float = 0.0  # regularisation of the token attention scores
     mean_token_loss_gamma: float = 0.0  # mean of token values should be close to document label
-    min_max_token_loss_gamma: float = 1.0  # min/max should be close to document label
+    min_max_token_loss_gamma: float = 0.0  # min/max should be close to document label
+    top_k_pct: float = 0.10  # pct of tokens to be optimised as providing evidence
+    top_k_token_loss_gamma: float = 0.0  # importance of top-k optimisation on the token level
 
     @classmethod
     def from_json(cls, filepath):

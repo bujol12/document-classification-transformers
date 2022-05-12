@@ -151,7 +151,70 @@ class SoftAttentionLayer(torch.nn.Module):
             torch.square(torch.sum(self.attention_scores, dim=1) / self.inp_lengths - document_targets.view(-1)))
 
         # l2 regularisation
+        # calculate mean squared values per document and average
         l5 = torch.mean(torch.sum(torch.square(self.attention_scores), dim=1) / self.inp_lengths)
 
-        return self.config.min_max_token_loss_gamma * (
-                    l2 + l3) + self.config.mean_token_loss_gamma * l4 + self.config.regularisation_loss_gamma * l5
+        l6 = self.__top_k_loss(document_targets)
+
+        return self.config.min_max_token_loss_gamma * (l2 + l3) \
+               + self.config.mean_token_loss_gamma * l4 \
+               + self.config.regularisation_loss_gamma * l5 \
+               + self.config.top_k_token_loss_gamma * l6
+
+    def __top_k_loss(self, document_targets):
+        """
+        Calculate loss based on top k% of tokens in the document
+        Optimise top-k% to be close to the label of the document, while the rest close to 0.
+
+        :param document_targets:
+        :return:
+        """
+
+        ### Part 1: optimise top k to be the same as the document label
+
+        # number of tokens to be optimised for each document
+        k_vals = torch.round(self.inp_lengths * self.config.top_k_pct)
+
+        # sort the tokens by max values
+        sorted_attentions, _ = torch.sort(
+            torch.where(
+                self.__sequence_mask(self.inp_lengths, maxlen=self.transformers_attention_mask.shape[1]),
+                self.attention_scores,
+                torch.zeros_like(self.attention_scores) - 1e6,
+            ),
+            dim=1,
+        )
+
+        # only take top k tokens for each document, zero the rest out
+        masked_attns = torch.where(
+            self.__sequence_mask(k_vals, maxlen=self.transformers_attention_mask.shape[1]),
+            torch.fliplr(sorted_attentions) - document_targets[:, None],  # flip to have highest labels first
+            # want the difference to be 0 <> top attens be close to 0/1 dep. on the doc. label. This is MSE^
+            torch.zeros_like(sorted_attentions)
+        )
+
+        loss = torch.mean(torch.square(masked_attns))  # average the mean sqaured error
+
+        #### Part 2: optimise all other tokens
+
+        # sort the tokens by max values (mask out tokens outside of the input)
+        sorted_attentions, _ = torch.sort(
+            torch.where(
+                self.__sequence_mask(self.inp_lengths, maxlen=self.transformers_attention_mask.shape[1]),
+                self.attention_scores,
+                torch.zeros_like(self.attention_scores) + 1e6,
+                # now add a large number to get only token-based atttentions first
+            ),
+            dim=1,
+        )
+
+        # zero out the rest
+        masked_attns = torch.where(
+            self.__sequence_mask(k_vals, maxlen=self.transformers_attention_mask.shape[1]),
+            sorted_attentions,  # want the rest of attentions to be close to 0
+            torch.zeros_like(sorted_attentions)
+        )
+
+        loss += torch.mean(torch.square(masked_attns))  # average the mean sqaured error
+
+        return loss
