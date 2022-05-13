@@ -173,7 +173,7 @@ class SoftAttentionLayer(torch.nn.Module):
         ### Part 1: optimise top k to be the same as the document label
 
         # number of tokens to be optimised for each document
-        k_vals = torch.round(self.inp_lengths * self.config.top_k_pct)
+        k_vals = torch.round(self.inp_lengths * (1 - self.config.top_k_pct))
 
         # sort the tokens by max values
         sorted_attentions, _ = torch.sort(
