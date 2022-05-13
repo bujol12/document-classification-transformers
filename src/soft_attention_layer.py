@@ -195,7 +195,10 @@ class SoftAttentionLayer(torch.nn.Module):
         loss = torch.sum(torch.square(masked_attns)) / torch.sum(k_vals)  # average the mean sqaured error
 
         #### Part 2: optimise all other tokens
-        k_vals = torch.round(self.inp_lengths * (1 - self.config.top_k_pct))
+
+        if not self.config.top_k_bottom_k:
+            # optimise the rest outside of top k to be 0
+            k_vals = torch.round(self.inp_lengths * (1 - self.config.top_k_pct))
 
         # sort the tokens by max values (mask out tokens outside of the input)
         sorted_attentions, _ = torch.sort(

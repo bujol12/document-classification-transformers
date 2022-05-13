@@ -53,6 +53,7 @@ class Config:
     min_max_token_loss_gamma: float = 0.0  # min/max should be close to document label
     top_k_pct: float = 0.10  # pct of tokens to be optimised as providing evidence
     top_k_token_loss_gamma: float = 0.0  # importance of top-k optimisation on the token level
+    top_k_bottom_k: bool = False  # if False, optimise all tokens outside of top k to be 0
 
     @classmethod
     def from_json(cls, filepath):
