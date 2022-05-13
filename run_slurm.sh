@@ -8,9 +8,9 @@ configName=$1
 trainData=$2
 evalData=$3
 
-echo "Config " $1
-echo "Train Data " $2
-echo "Eval Data " $3
+echo "Config " $configName
+echo "Train Data " $trainData
+echo "Eval Data " $evalData
 
 
 source /homes/${USER}/.bashrc
