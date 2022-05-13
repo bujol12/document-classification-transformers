@@ -149,6 +149,10 @@ def main():
                                 for idx in range(edit.o_start, min(edit.o_end, len(doc["token_labels"][-1]))):
                                     doc["token_labels"][-1][idx] = args.pos_label
 
+            if args.remove_neg_doc_evidence and doc["document_label"] == 0:
+                for sent_id, sent in enumerate(doc["token_labels"]):
+                    doc["token_labels"][sent_id] = [0 for _ in range(len(sent))]
+
             # add the newly created document to the dict
             if doc["id"] not in output_dict["documents"].keys():
                 output_dict["documents"][doc["id"]] = []
@@ -222,6 +226,11 @@ def parse_args():
         "-lev",
         help="Align using standard Levenshtein.",
         action="store_true")
+    parser.add_argument(
+        '-remove_neg_doc_evidence',
+        action='store_true',
+        default=False
+    )
     parser.add_argument(
         "-merge",
         help="Choose a merging strategy for automatic alignment.\n"
