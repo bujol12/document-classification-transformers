@@ -192,8 +192,7 @@ class SoftAttentionLayer(torch.nn.Module):
             # want the difference to be 0 <> top attens be close to 0/1 dep. on the doc. label. This is MSE^
             torch.zeros_like(sorted_attentions)
         )
-
-        loss = torch.mean(torch.square(masked_attns))  # average the mean sqaured error
+        loss = torch.sum(torch.square(masked_attns)) / torch.sum(k_vals)  # average the mean sqaured error
 
         #### Part 2: optimise all other tokens
         k_vals = torch.round(self.inp_lengths * (1 - self.config.top_k_pct))
@@ -215,7 +214,6 @@ class SoftAttentionLayer(torch.nn.Module):
             sorted_attentions,  # want the rest of attentions to be close to 0
             torch.zeros_like(sorted_attentions)
         )
-
-        loss += torch.mean(torch.square(masked_attns))  # average the mean sqaured error
+        loss += torch.sum(torch.square(masked_attns)) / torch.sum(k_vals)  # average the mean sqaured error
 
         return loss
