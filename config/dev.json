@@ -14,6 +14,6 @@
   "weighted_loss": true,
   "soft_attention": true,
   "predict_document_label_from_cls": false,
-  "token_loss_gamma": 1.0,
+  "token_loss_gamma": 10.0,
   "top_k_token_loss_gamma": 1.0
 }
