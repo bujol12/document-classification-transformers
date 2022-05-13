@@ -4,9 +4,14 @@
 #SBATCH --mail-type=ALL # required to send email notifcations
 #SBATCH --mail-user=kdb19 # required to send email notifcations - please replace 'your_username' with your college login name or email address
 # script to run the training on the Imperial DoC Slurm Cluster (necessary for Longformer for larger GPUs)
-configName="longformer-fce.json"
-trainData="data/processed/fce/json/train.json"
-evalData="data/processed/fce/json/dev.json"
+configName=$1
+trainData=$2
+evalData=$3
+
+echo "Config " $1
+echo "Train Data " $2
+echo "Eval Data " $3
+
 
 source /homes/${USER}/.bashrc
 conda activate dissertation
