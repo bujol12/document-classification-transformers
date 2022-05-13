@@ -20,4 +20,4 @@ source /vol/cuda/11.0.3-cudnn8.0.5.39/setup.sh
 cd /vol/bitbucket/${USER}/document-classification-transformers
 
 #Add the path to your python script below, making sure the file exists, and any other commands
-python main.py --config config/$configName --eval $evalData --train $trainData
+python main.py --config $configName --eval $evalData --train $trainData
