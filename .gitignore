@@ -137,6 +137,8 @@ data/processed/bea2019/json/*.json
 data/processed/fce/json/*.json
 data/processed/imdb/json/*.json
 data/processed/beer_advocate/json/*.json
+data/processed/fce_no_neg_evidence/json/*.json
+data/processed/bea2019_no_neg_evidence/json/*.json
 
 # runs
 runs/*
