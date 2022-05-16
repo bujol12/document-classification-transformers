@@ -40,6 +40,11 @@ def main():
             j = 0
             token_labels_doc = [int(label) for label in line.strip().split(" ")]
 
+            if min(token_labels_doc) < 0 or max(token_labels_doc) > 1:
+                # skip tokens != 0/1
+                del output_dict["documents"][i]
+                continue
+
             output_dict["documents"][i]["token_labels"] = []
             for sent in output_dict["documents"][i]["tokens"]:
                 token_labels = token_labels_doc[j:j + len(sent)]
