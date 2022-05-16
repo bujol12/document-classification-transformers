@@ -70,14 +70,13 @@ class DocumentModel(torch.nn.Module):
         if self.config.soft_attention:
             self.document_logits, token_outputs = self.soft_attention_layer(token_transformer_outputs,
                                                                             attention_mask[:, 1:])
-        else:
-            # use last attention layer
-            token_outputs = self.__get_top_k(self.lm_outputs.attentions[-1], input_ids)
 
         # CLS document prediction
         if self.config.predict_document_label_from_cls:
             self.document_logits = self.cls_logit_layer(
                 self.cls_dropout(self.lm_outputs.pooler_output))  # last_hidden_state[:, 0])
+            # use last attention layer
+            token_outputs = self.__get_top_k(self.lm_outputs.attentions[-1], input_ids, self.document_logits)
 
         return self.document_logits, token_outputs
 
@@ -135,7 +134,7 @@ class DocumentModel(torch.nn.Module):
         loss = document_loss + self.config.token_loss_gamma * token_loss
         return loss
 
-    def __get_top_k(self, attention_layer, input_ids):
+    def __get_top_k(self, attention_layer, input_ids, document_logits):
         k = self.config.top_k_pct
 
         # aggregate
@@ -147,12 +146,13 @@ class DocumentModel(torch.nn.Module):
 
         for sample_idx in range(len(cls_mean_attention)):
             sample_size = len(input_ids[sample_idx].nonzero())
+            document_pred_label = torch.argmax(document_logits[sample_idx]).item()
 
             sample_scores = cls_mean_attention[sample_idx, :sample_size]
             token_cnt = int(k * len(sample_scores))
 
             selected_indices = torch.argsort(sample_scores, descending=True)[:token_cnt]
-            top_k_mask = [1.0 if i in selected_indices else 0.0 for i in range(input_size)]
+            top_k_mask = [document_pred_label if i in selected_indices else 0.0 for i in range(input_size)]
             token_scores.append(top_k_mask)
 
         return torch.tensor(token_scores)
