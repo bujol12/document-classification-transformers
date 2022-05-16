@@ -70,6 +70,9 @@ class DocumentModel(torch.nn.Module):
         if self.config.soft_attention:
             self.document_logits, token_outputs = self.soft_attention_layer(token_transformer_outputs,
                                                                             attention_mask[:, 1:])
+        else:
+            # use last attention layer
+            token_outputs = self.__get_top_k(self.lm_outputs.attentions[-1], input_ids)
 
         # CLS document prediction
         if self.config.predict_document_label_from_cls:
@@ -131,3 +134,25 @@ class DocumentModel(torch.nn.Module):
 
         loss = document_loss + self.config.token_loss_gamma * token_loss
         return loss
+
+    def __get_top_k(self, attention_layer, input_ids):
+        k = self.config.top_k_pct
+
+        # aggregate
+        mean_last_layer = torch.mean(attention_layer, dim=1)
+        cls_mean_attention = mean_last_layer[:, 0, :]
+        input_size = attention_layer.shape[-1] - 1 # excluse CLS
+
+        token_scores = []
+
+        for sample_idx in range(len(cls_mean_attention)):
+            sample_size = len(input_ids[sample_idx].nonzero())
+
+            sample_scores = cls_mean_attention[sample_idx, :sample_size]
+            token_cnt = int(k * len(sample_scores))
+
+            selected_indices = torch.argsort(sample_scores, descending=True)[:token_cnt]
+            top_k_mask = [1.0 if i in selected_indices else 0.0 for i in range(input_size)]
+            token_scores.append(top_k_mask)
+
+        return torch.tensor(token_scores)
