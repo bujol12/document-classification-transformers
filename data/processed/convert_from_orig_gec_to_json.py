@@ -8,7 +8,8 @@ from operator import itemgetter
 from string import punctuation
 from copy import deepcopy
 
-FCE_PASS_SCORE = 24
+FCE_NEG_CLASS_SCORE = 26
+FCE_POS_CLASS_SCORE = 30
 
 
 # Convert BEA2019 Shared Task style JSON to document-classification JSOn format
@@ -49,7 +50,7 @@ def main():
 
     output_dict = {"documents": {}}
     empty_doc = {"tokens": [], "document_label": None, "sentence_labels": None, "token_labels": [], "id": None}
-
+    
     print("Preprocessing files...")
     # Open the file
     with open(args.json_file) as data:
@@ -95,7 +96,10 @@ def main():
                 doc["id"] = line["id"]
             elif "script-s" in line.keys():
                 # FCE
-                doc["document_label"] = 1 if int(line['script-s']) < FCE_PASS_SCORE else 0  # 1 if fail, 0 if pass
+                if int(line['script-s']) <= FCE_POS_CLASS_SCORE and int(line['script-s']) >= FCE_NEG_CLASS_SCORE:
+                    # skip middle part of FCE
+                    continue
+                doc["document_label"] = 1 if int(line['script-s']) < FCE_NEG_CLASS_SCORE else 0  # 1 if fail, 0 if pass
                 doc["id"] = line["id"]
             else:
                 doc["id"] = cnt
@@ -157,7 +161,6 @@ def main():
             if doc["id"] not in output_dict["documents"].keys():
                 output_dict["documents"][doc["id"]] = []
             output_dict["documents"][doc["id"]].append(doc)
-
     # aggregate outputs with the same idx and convert dict to list
     documents = []
     for idx, docs in output_dict["documents"].items():

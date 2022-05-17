@@ -76,7 +76,7 @@ class Metrics:
             token_pred_labels = torch.round(torch.tensor(token_preds))
 
             self.token_acc = accuracy_score(token_true, token_pred_labels)
-            self.token_map = average_precision_score(token_true, token_preds)
+            self.token_map = average_precision_score(token_true, token_preds) # TODO: bug!!!! calculate the mean over samples for AP
             self.token_f1 = f1_score(token_true, token_pred_labels)
             self.token_p = precision_score(token_true, token_pred_labels)
             self.token_r = recall_score(token_true, token_pred_labels)
