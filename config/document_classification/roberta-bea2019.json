@@ -6,7 +6,7 @@
   "compose_sentence_representations": false,
   "train_batch_size": 8,
   "eval_batch_size": 16,
-  "num_labels": 1,
+  "num_labels": 2,
   "epochs": 20,
   "gradient_accumulation_steps": 4,
   "stop_if_no_improvement_n_epochs": 5,
