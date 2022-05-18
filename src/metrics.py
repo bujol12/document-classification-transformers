@@ -58,30 +58,56 @@ class Metrics:
 
             if token_true.shape[-1] - token_preds.shape[-1] > 0:
                 # pad with 0s for when the sequence length was longer than the maximum model length
-                self.token_preds = torch.nn.functional.pad(token_preds,
-                                                           (0, token_true.shape[-1] - token_preds.shape[-1])).view(-1)
-            else:
-                self.token_preds = token_preds
+                token_preds = torch.nn.functional.pad(token_preds,
+                                                      (0, token_true.shape[-1] - token_preds.shape[-1]))
+
+            self.token_preds = token_preds.view(-1)
+
+            assert len(self.token_true) == len(self.token_preds)
 
             # ignore tokens with -100
-            assert len(self.token_true) == len(self.token_preds)
-            token_true = []
-            token_preds = []
+            token_true_lst = []
+            token_preds_lst = []
             for i in range(len(self.token_true)):
                 if self.token_preds[i] == -100 or self.token_true[i] == -100:
                     continue
-                token_true.append(self.token_true[i].item())
-                token_preds.append(self.token_preds[i].item())
+                token_true_lst.append(self.token_true[i].item())
+                token_preds_lst.append(self.token_preds[i].item())
 
-            token_pred_labels = torch.round(torch.tensor(token_preds))
+            token_pred_labels = torch.round(torch.tensor(token_preds_lst))
 
-            self.token_acc = accuracy_score(token_true, token_pred_labels)
-            self.token_map = average_precision_score(token_true, token_preds) # TODO: bug!!!! calculate the mean over samples for AP
-            self.token_f1 = f1_score(token_true, token_pred_labels)
-            self.token_p = precision_score(token_true, token_pred_labels)
-            self.token_r = recall_score(token_true, token_pred_labels)
+            self.token_acc = accuracy_score(token_true_lst, token_pred_labels)
+            self.token_map = self.__get_map(token_true, token_preds)
+            self.token_f1 = f1_score(token_true_lst, token_pred_labels)
+            self.token_p = precision_score(token_true_lst, token_pred_labels)
+            self.token_r = recall_score(token_true_lst, token_pred_labels)
 
     def to_json(self):
         return {'loss': self.loss, 'doc_acc': self.acc, 'doc_f1': self.f1, 'doc_p': self.p, 'doc_r': self.r,
                 'tok_acc': self.token_acc, 'tok_f1': self.token_f1, 'tok_p': self.token_p, 'tok_r': self.token_r,
                 'tok_map': self.token_map}
+
+    def __get_map(self, token_true, token_preds):
+        """
+        Calculate mean average precision on 2-D predictions (batch_size x pred_size)
+        :param token_true: true labels (batch_size x pred_size)
+        :param token_preds: predictions
+        :return: MAP score
+        """
+        map_sum = 0.0
+
+        for sample_idx in range(len(token_true)):
+            true = []
+            preds = []
+
+            # skip all -100s
+            for idx in range(len(token_true[sample_idx])):
+                if token_true[sample_idx][idx] == -100 or token_preds[sample_idx][idx] == -100:
+                    # skip tokens to be ignored
+                    continue
+                true.append(token_true[sample_idx][idx])
+                preds.append(token_preds[sample_idx][idx])
+
+            map_sum += average_precision_score(true, preds)
+
+        return map_sum / len(token_true)
