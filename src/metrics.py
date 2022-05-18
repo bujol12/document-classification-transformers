@@ -95,6 +95,7 @@ class Metrics:
         :return: MAP score
         """
         map_sum = 0.0
+        cnt = 0
 
         for sample_idx in range(len(token_true)):
             true = []
@@ -107,7 +108,8 @@ class Metrics:
                     continue
                 true.append(token_true[sample_idx][idx])
                 preds.append(token_preds[sample_idx][idx])
+            if max(true) > 0.0:
+                map_sum += average_precision_score(true, preds)
+                cnt += 1
 
-            map_sum += average_precision_score(true, preds)
-
-        return map_sum / len(token_true)
+        return map_sum / cnt
