@@ -8,21 +8,21 @@ class SoftAttentionLayer(torch.nn.Module):
     A module containing all components of the Soft Attention Architecture
     """
 
-    def __init__(self, config: Config, lm_config):
+    def __init__(self, config: Config, input_layer_size):
         super().__init__()
         self.config = config
-        self.lm_config = lm_config
+        self.input_layer_size = input_layer_size
 
         # Token-level attention
         self.soft_attention_dropout_layer = torch.nn.Dropout(p=self.config.soft_attention_dropout)
-        self.soft_attention_evidence_layer = torch.nn.Linear(self.lm_config.hidden_size,
+        self.soft_attention_evidence_layer = torch.nn.Linear(self.input_layer_size,
                                                              self.config.soft_attention_evidence_size)
         # used for predicting token-level scores
         self.soft_attention_scores_layer = torch.nn.Linear(self.config.soft_attention_evidence_size, 1)
         self.soft_attention_activation = torch.sigmoid
 
         # Compose to build Document-level representation
-        self.document_repr_hidden_layer = torch.nn.Linear(self.lm_config.hidden_size,
+        self.document_repr_hidden_layer = torch.nn.Linear(self.input_layer_size,
                                                           self.config.soft_attention_hidden_size)
         self.document_preds_layer = torch.nn.Linear(self.config.soft_attention_hidden_size, self.config.num_labels)
 

@@ -32,11 +32,14 @@ class Config:
     soft_attention_evidence_size: int = 100  # size of attention evidence layer
     soft_attention_hidden_size: int = 300
 
+    # Compositional Approach Config
+    compose_sentence_representations: bool = False  # if set true, apply transformer to each sentence separately. If false, apply transformer to the whole document
+    compositional_model_max_token_len: int = 4096  # same as Longformer
+
     # Misc
     infer_labels: bool = False  # take max of labels for sentence and document if not present
     seed: int = 22
     label_all_tokens: bool = False  # if False, only first part of token has a label, with rest = -100
-    compose_sentence_representations: bool = False  # if set true, apply transformer to each sentence separately. If false, apply transformer to the whole document
     min_epochs: int = 10  # min epochs to run for, ignoring early stopping
 
     # Hyperparameters

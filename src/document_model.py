@@ -21,12 +21,10 @@ class DocumentModel(torch.nn.Module):
     lm_config: PretrainedConfig
     lm_outputs: BaseModelOutput
 
-    def __init__(self, config):
+    def __init__(self, config, lm_config):
         super().__init__()
         self.config = config
-
-        # Base transformer
-        self.lm_config = self.get_transformers_config(self.config)
+        self.lm_config = lm_config
 
         logger.info("Setting up a transformer model with Config")
         logger.info(self.lm_config)
@@ -41,7 +39,7 @@ class DocumentModel(torch.nn.Module):
         self.cls_logit_layer = torch.nn.Linear(self.lm_config.hidden_size, self.config.num_labels)
 
         # Soft Attention layer
-        self.soft_attention_layer = SoftAttentionLayer(self.config, self.lm_config)
+        self.soft_attention_layer = SoftAttentionLayer(self.config, self.lm_config.hidden_size)
 
         # Initialise layers
         self.__init_weights(self.cls_dropout)
@@ -80,16 +78,6 @@ class DocumentModel(torch.nn.Module):
 
         return self.document_logits, token_outputs
 
-    @staticmethod
-    def get_transformers_config(config: Config) -> PretrainedConfig:
-        """
-        Get the config for the given transformer model
-        + do modifications we would like
-        :param config:
-        :return: Transformers configs
-        """
-        return AutoConfig.from_pretrained(config.transformers_model_name_or_path, **config.transformers_override)
-
     def __init_weights(self, m):
         if self.config.initializer_name == "normal":
             self.initializer = torch.nn.init.normal_
@@ -115,7 +103,8 @@ class DocumentModel(torch.nn.Module):
             document_logits = torch.nn.Sigmoid()(self.document_logits)
         elif self.config.num_labels == 2:
             criterion = torch.nn.BCEWithLogitsLoss(weight=weights)
-            document_targets_loss = torch.nn.functional.one_hot(document_targets, num_classes=self.config.num_labels).to(
+            document_targets_loss = torch.nn.functional.one_hot(document_targets,
+                                                                num_classes=self.config.num_labels).to(
                 torch.float32).to(document_targets.device)
         else:
             criterion = torch.nn.CrossEntropyLoss(weight=weights)
@@ -140,7 +129,7 @@ class DocumentModel(torch.nn.Module):
         # aggregate
         mean_last_layer = torch.mean(attention_layer, dim=1)
         cls_mean_attention = mean_last_layer[:, 0, :]
-        input_size = attention_layer.shape[-1] - 1 # excluse CLS
+        input_size = attention_layer.shape[-1] - 1  # excluse CLS
 
         token_scores = []
 

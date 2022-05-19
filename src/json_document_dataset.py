@@ -126,8 +126,19 @@ class JsonDocumentDataset(Dataset):
 
         if self.config.compose_sentence_representations:
             # tokenise each sentence separately
-            # TODO: add labels for each sentence
-            raise Exception("Composition of sentence representations not implemented")
+            self.tokenised_input = None
+
+            for doc_id, doc_tokens in enumerate(self.input_tokens):
+                # tokenise each sentence in document separately
+                tokenised_document = self.tokenise_flat_input(doc_tokens, self.token_labels[doc_id])
+
+                # assign document-level labels
+                tokenised_document["label"] = self.document_labels[doc_id]
+
+                # assign sentence-level labels
+                tokenised_document["sentence_labels"] = self.sentence_labels[doc_id]
+
+                self.tokenised_input = self.__extend_tokenised_input(self.tokenised_input, tokenised_document)
         else:
             # tokenise each document separately
 
@@ -137,24 +148,37 @@ class JsonDocumentDataset(Dataset):
                 self.flat_input_tokens.append(list(itertools.chain(*doc)))
 
             # tokenise
-            self.tokenised_input = self.tokeniser(self.flat_input_tokens, is_split_into_words=True,
-                                                  max_length=self.config.max_transformer_input_len,
-                                                  padding="max_length",
-                                                  truncation=True)
-
-            # assign token-level labels
-            self.tokenised_input["label_ids"] = self.__generate_tokenised_labels()
+            self.tokenised_input = self.tokenise_flat_input(self.flat_input_tokens, self.token_labels)
 
             # assign document-level labels
             self.tokenised_input["label"] = self.document_labels
 
-            # copy over word ids
-            self.tokenised_input["word_ids"] = [
-                [word_idx if word_idx is not None else -1 for word_idx in self.tokenised_input.word_ids(batch_index=i)]
-                for i in
-                range(len(self.tokenised_input["label"]))]
+    def tokenise_flat_input(self, flat_input_tokens, token_labels):
+        """
+        Tokenise a dataset consisting of 2-d array of input tokens.
+        Assign token-level labels and word ids for each token
+        :param flat_input_tokens:
+        :return:
+        """
 
-    def __generate_tokenised_labels(self):
+        # tokenise
+        tokenised_input = self.tokeniser(flat_input_tokens, is_split_into_words=True,
+                                         max_length=self.config.max_transformer_input_len,
+                                         padding="max_length",
+                                         truncation=True)
+
+        # assign token-level labels
+        tokenised_input["label_ids"] = self.__generate_tokenised_labels(token_labels, tokenised_input)
+
+        # copy over word ids
+        tokenised_input["word_ids"] = [
+            [word_idx if word_idx is not None else -1 for word_idx in tokenised_input.word_ids(batch_index=i)]
+            for i in
+            range(len(tokenised_input["label_ids"]))]
+
+        return tokenised_input
+
+    def __generate_tokenised_labels(self, token_labels, tokenised_input):
         """
         iterate through examples and get labels for each token, setting labels for special tokens == -100
         taken from HuggingFace example
@@ -162,12 +186,12 @@ class JsonDocumentDataset(Dataset):
         :return: tokenised labels
         """
         processed_labels = []
-        for i, labels in enumerate(self.token_labels):
+        for i, labels in enumerate(token_labels):
             if type(labels[0]) == list:
                 flat_labels = list(itertools.chain(*labels))
             else:
                 flat_labels = deepcopy(labels)
-            word_ids = self.tokenised_input.word_ids(batch_index=i)
+            word_ids = tokenised_input.word_ids(batch_index=i)
 
             previous_word_idx = None
             label_ids = []
@@ -234,3 +258,64 @@ class JsonDocumentDataset(Dataset):
                 else:
                     batch[k] = torch.tensor([f[k] for f in features])
         return batch
+
+    @staticmethod
+    def compositional_collator(features: List[Any]) -> Dict[str, Any]:
+        """
+        Similar to HuggingFace default_data_collator, but does not have special handling for labels_ids etc
+        Truncate input that's too long, but leave labels of original length
+        Return a list (instead of tensor) that contains a variable number of sentences,
+        :return:
+        """
+        if not isinstance(features[0], (dict, BatchEncoding)):
+            features = [vars(f) for f in features]
+        first = features[0]
+        batch = {}
+
+        # Special handling for labels.
+        # Ensure that tensor is created with the correct type
+        # (it should be automatically the case, but let's make sure of it.)
+        if "label" in first and first["label"] is not None:
+            label = first["label"].item() if isinstance(first["label"], torch.Tensor) else first["label"]
+            dtype = torch.long if isinstance(label, int) else torch.float
+            batch["label"] = torch.tensor([f["label"] for f in features], dtype=dtype)
+        if "label_ids" in first and first["label_ids"] is not None:
+            if isinstance(first["label_ids"], torch.Tensor):
+                batch["label_ids"] = torch.stack([f["label_ids"] for f in features])
+            else:
+                dtype = torch.long if type(first["label_ids"][0]) is int else torch.float
+                batch["label_ids"] = [  # pad each document individually
+                    torch.nn.utils.rnn.pad_sequence([torch.tensor(sent_label_ids) for sent_label_ids in f["label_ids"]], batch_first=True, padding_value=-100)
+                    for f in features]
+
+                # pad all label ids to be of the same length across the batch, -100 shows end of original label_ids
+                # batch["label_ids"] = torch.tensor([f["label_ids"] for f in features], dtype=dtype)
+
+        # Handling of all other possible keys.
+        # Again, we will use the first element to figure out which key/values are not None for this model.
+        for k, v in first.items():
+            if k not in ("label", "label_ids") and v is not None and not isinstance(v, str):
+                if isinstance(v, torch.Tensor):
+                    batch[k] = torch.stack([f[k] for f in features])
+                else:
+                    batch[k] = [f[k] for f in features]
+        return batch
+
+    def __extend_tokenised_input(self, tokenised_input: BatchEncoding, tokenised_document: BatchEncoding):
+        """
+        Key-wise extend the given input with the newly processed document
+        :param tokenised_input:
+        :param tokenised_document:
+        :return:
+        """
+
+        if tokenised_input is None:
+            # if not input, simply return the part that's extending it
+            tokenised_input = tokenised_document
+            for k, v in tokenised_document.items():
+                tokenised_input[k] = [v]
+        else:
+            for k, v in tokenised_document.items():
+                tokenised_input[k].append(v)
+
+        return tokenised_input

@@ -12,9 +12,11 @@ from copy import deepcopy
 
 import torch
 
-from transformers import set_seed, get_constant_schedule_with_warmup, get_linear_schedule_with_warmup
+from transformers import set_seed, get_constant_schedule_with_warmup, get_linear_schedule_with_warmup, PretrainedConfig, \
+    AutoConfig
 from torch.utils.data import DataLoader
 
+from .compositional_model import CompositionalModel
 from .document_model import DocumentModel
 from .json_document_dataset import JsonDocumentDataset
 from .config import Config
@@ -25,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 class Experiment:
     config: Config
-    model: DocumentModel
+    model: torch.nn.Module
     train_dataset: JsonDocumentDataset = None
     eval_dataset: JsonDocumentDataset = None
     train_dataloader: DataLoader = None
@@ -41,8 +43,13 @@ class Experiment:
         # set seed for reproducible behaviour
         set_seed(self.config.seed)
 
+        self.lm_config = self.get_transformers_config(self.config)
+
         # setup the model
-        self.model = DocumentModel(self.config)
+        if self.config.compose_sentence_representations:
+            self.model = CompositionalModel(self.config, self.lm_config)
+        else:
+            self.model = DocumentModel(self.config, self.lm_config)
 
         # setup the datasets
         if train_data_filepath is not None:
@@ -53,7 +60,10 @@ class Experiment:
             self.eval_dataset = JsonDocumentDataset(eval_data_filepath, self.config)
 
         # Create collator for DataLoaders
-        self.data_collator = JsonDocumentDataset.own_default_collator
+        if self.config.compose_sentence_representations:
+            self.data_collator = JsonDocumentDataset.compositional_collator
+        else:
+            self.data_collator = JsonDocumentDataset.own_default_collator
 
         # Data loaders
         if self.train_dataset is not None:
@@ -110,23 +120,15 @@ class Experiment:
             self.model.train()
 
             for step, batch in enumerate(self.train_dataloader):
-                # move to device
-                moved_batch = {}
-                moved_batch["input_ids"] = batch["input_ids"].to(self.device)
-                moved_batch["attention_mask"] = batch["attention_mask"].to(self.device)
+                if not self.config.compose_sentence_representations:
+                    # move to device
+                    batch = self.__move_batch(batch, self.device)
+                    # move later for compositional approach
 
-                document_logits, token_outputs = self.model(**moved_batch)
+                document_logits, token_outputs = self.model(**batch)
 
-                # move labels to calculate loss
-                moved_batch["label_ids"] = batch["label_ids"].to(self.device)
-                moved_batch["label"] = batch["label"].to(self.device)
-
-                # TODO: token outputs can be smaller than batch["label_ids"]
-                #  -> right-pad with 0s for tokens where batch["label_ids"] != -100
-                #  (-100 is padding to ensure all batch label_ids have the same length)
-                loss = self.model.loss(moved_batch["label"], weights=weights)
+                loss = self.model.loss(batch["label"], weights=weights)
                 loss = loss / self.config.gradient_accumulation_steps
-
                 loss.backward()
 
                 # if gradient fully accumulated, update parameters
@@ -136,15 +138,11 @@ class Experiment:
                     optimiser.zero_grad()
 
                 # free up GPU
-                keys = moved_batch.keys()
-                for k in list(keys):
-                    del moved_batch[k]
-
                 del document_logits
                 del token_outputs
-                del moved_batch
+                del batch
                 del loss
-                gc.collect()
+
                 torch.cuda.empty_cache()
 
             # Evaluate at the end of each epoch
@@ -157,6 +155,7 @@ class Experiment:
             logger.info(f"Eval dataset performance: {eval_performance.to_json()}")
             print()
 
+            # early stopping check
             if self.config.stop_if_no_improvement_n_epochs != -1:
                 if best_eval_loss is None:
                     # first epoch
@@ -211,35 +210,26 @@ class Experiment:
         for step, batch in enumerate(data_loader):
             total_len += len(batch["label"])
             # move to device
-            moved_batch = {}
-            moved_batch["input_ids"] = batch["input_ids"].to(self.device)
-            moved_batch["attention_mask"] = batch["attention_mask"].to(self.device)
+            if not self.config.compose_sentence_representations:
+                batch = self.__move_batch(batch, self.device)
 
             with torch.no_grad():
-                document_logits, token_outputs = self.model(**moved_batch)
+                document_logits, token_outputs = self.model(**batch)
 
-                # move labels to calculate loss
-                moved_batch["label_ids"] = batch["label_ids"].to(self.device)
-                moved_batch["label"] = batch["label"].to(self.device)
-
-                total_loss += len(moved_batch["label"]) * self.model.loss(moved_batch["label"]).detach().cpu()
+                total_loss += len(batch["label"]) * self.model.loss(batch["label"]).detach().cpu()
 
             document_predictions += document_logits.detach().cpu().tolist()
-            true_document_labels += moved_batch["label"].detach().cpu().tolist()
+            true_document_labels += batch["label"].detach().cpu().tolist()
 
             if token_outputs is not None:
                 token_predictions += self.__convert_token_preds_to_words(
                     token_outputs.detach().cpu().tolist(), batch)  # convert token preds to word preds by taking max
-                # TODO:
-                #  1) zero-out tru labels_ids for negative documents;
-                #  2) skip all negative documents
-                #  3) evaluate as-is
-                true_token_labels += moved_batch["label_ids"].detach().cpu().tolist()
+                true_token_labels += batch["label_ids"].detach().cpu().tolist()
 
             # free up GPU
             del document_logits
             del token_outputs
-            del moved_batch
+            del batch
 
             torch.cuda.empty_cache()
 
@@ -307,3 +297,26 @@ class Experiment:
             new_token_preds.append([word_preds[dataset['word_ids'][i][j]] if
                                     dataset['word_ids'][i][j] != -1 else -100 for j in range(len(doc))])
         return new_token_preds
+
+    def __move_batch(self, batch, device):
+        """
+        Move the batch (dict of tensors) to a given device
+        :param batch:
+        :param device:
+        :return: moved batch
+        """
+        moved_batch = {}
+        for k, v in batch.items():
+            moved_batch[k] = v.to(device)
+
+        return moved_batch
+
+    @staticmethod
+    def get_transformers_config(config: Config) -> PretrainedConfig:
+        """
+        Get the config for the given transformer model
+        + do modifications we would like
+        :param config:
+        :return: Transformers configs
+        """
+        return AutoConfig.from_pretrained(config.transformers_model_name_or_path, **config.transformers_override)
