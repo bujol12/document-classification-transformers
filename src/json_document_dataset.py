@@ -21,8 +21,10 @@ class JsonDocumentDataset(Dataset):
     tokeniser: PreTrainedTokenizer
     input_tokens: List[List[List[str]]]
     document_labels: List[int]
+
     token_labels: List[List[List[int]]]
     sentence_labels: List[List[int]]
+
     tokenised_input: BatchEncoding
 
     config: Config
@@ -137,6 +139,8 @@ class JsonDocumentDataset(Dataset):
 
                 # assign sentence-level labels
                 tokenised_document["sentence_labels"] = self.sentence_labels[doc_id]
+                tokenised_document["sentence_preds"] = [None for _ in range(len(tokenised_document["sentence_labels"]))]
+                tokenised_document["pred"] = None
 
                 self.tokenised_input = self.__extend_tokenised_input(self.tokenised_input, tokenised_document)
         else:
@@ -152,6 +156,11 @@ class JsonDocumentDataset(Dataset):
 
             # assign document-level labels
             self.tokenised_input["label"] = self.document_labels
+
+            self.tokenised_input["sentence_labels"] = [None for _ in range(len(self.tokenised_input["label"]))]
+            self.tokenised_input["sentence_preds"] = [None for _ in range(len(self.tokenised_input["label"]))]
+
+            self.tokenised_input["pred"] = [None for _ in range(len(self.tokenised_input["label"]))]
 
     def tokenise_flat_input(self, flat_input_tokens, token_labels):
         """
@@ -175,6 +184,13 @@ class JsonDocumentDataset(Dataset):
             [word_idx if word_idx is not None else -1 for word_idx in tokenised_input.word_ids(batch_index=i)]
             for i in
             range(len(tokenised_input["label_ids"]))]
+
+        # add token scores placeholder
+        tokenised_input["token_preds"] = [None for _ in range(len(tokenised_input["input_ids"]))]
+
+        # add original tokens
+        tokenised_input["tokens"] = [self.tokeniser.convert_ids_to_tokens(sent) for sent in
+                                     tokenised_input["input_ids"]]
 
         return tokenised_input
 
@@ -285,7 +301,8 @@ class JsonDocumentDataset(Dataset):
             else:
                 dtype = torch.long if type(first["label_ids"][0]) is int else torch.float
                 batch["label_ids"] = [  # pad each document individually
-                    torch.nn.utils.rnn.pad_sequence([torch.tensor(sent_label_ids) for sent_label_ids in f["label_ids"]], batch_first=True, padding_value=-100)
+                    torch.nn.utils.rnn.pad_sequence([torch.tensor(sent_label_ids) for sent_label_ids in f["label_ids"]],
+                                                    batch_first=True, padding_value=-100)
                     for f in features]
 
                 # pad all label ids to be of the same length across the batch, -100 shows end of original label_ids
