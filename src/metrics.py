@@ -4,6 +4,8 @@ import torch.nn.functional as F
 from sklearn.metrics import average_precision_score, f1_score, precision_score, recall_score, accuracy_score
 
 
+from .json_document_dataset import JsonDocumentDataset
+
 class Metrics:
     token_acc = None
     token_map = None
@@ -11,30 +13,25 @@ class Metrics:
     token_p = None
     token_r = None
 
-    def __init__(self, y_preds: torch.tensor, y_true: torch.tensor, loss, token_preds: torch.tensor = None,
-                 token_true: torch.tensor = None):
+    def __init__(self, dataset: JsonDocumentDataset, loss):
         """
             Compute metrics for the (flattened) given predictions
-            :param preds: n_samples x n_classes np array containing probabilities for each sample of each class
-            :param labels: n_samples np array
+            :param dataset:
             :param loss:
-            :param token_preds: n_samples x n_classes
-            :param token_true: n_samples x length
             :return: metric class
         """
-        self.y_preds = y_preds
-        self.num_labels = self.y_preds.shape[1]
+        self.y_preds = torch.tensor(dataset.tokenised_input["pred"])
+        y_true = torch.tensor(dataset.tokenised_input["label"])
+
+        self.num_labels = self.y_preds.shape[-1]
 
         if self.num_labels == 1:
             # single values
             self.y_true = y_true.to(torch.float32)
-            y_true_probs = self.y_true
-            self.y_preds = torch.nn.Sigmoid()(self.y_preds)
             y_pred_labels = torch.round(self.y_preds[:, 0])
         else:
             self.y_true = y_true
-            y_true_probs = F.one_hot(self.y_true, num_classes=self.num_labels)
-            y_pred_labels = torch.argmax(self.y_preds, dim=1)
+            y_pred_labels = self.y_preds
 
         # document-level metrics
         self.acc = accuracy_score(self.y_true, y_pred_labels)
@@ -46,6 +43,9 @@ class Metrics:
         self.loss = loss
 
         # token level, if present
+        token_preds = dataset.tokenised_input["token_preds"]
+        token_true = dataset.tokenised_input["label_ids"]
+
         if token_preds != [] and token_true != []:
             # pad all true tokens to be of the same length (with -100)
             token_true = torch.nn.utils.rnn.pad_sequence(

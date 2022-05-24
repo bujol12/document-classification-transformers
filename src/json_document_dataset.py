@@ -1,7 +1,7 @@
 import json
 import itertools
 import logging
-from typing import List, Any, Dict
+from typing import List, Any, Dict, Tuple
 from copy import deepcopy
 
 import torch
@@ -117,7 +117,7 @@ class JsonDocumentDataset(Dataset):
         res = {}
         for k, v in self.tokenised_input.items():
             res[k] = v[idx]
-        return res
+        return res, idx
 
     def __tokenise_and_align(self):
         """
@@ -236,12 +236,18 @@ class JsonDocumentDataset(Dataset):
         return processed_labels
 
     @staticmethod
-    def own_default_collator(features: List[Any]) -> Dict[str, Any]:
+    def own_default_collator(features_with_idx: List[Tuple[Dict, int]]) -> Dict[str, torch.Tensor]:
         """
         Similar to HuggingFace default_data_collator, but does not have special handling for labels_ids etc
         Truncate input that's too long, but leave labels of original length
+
+        Returns a Dictionary containing BATCHED inputs, each being a torch tensor
+        Usually used for collating batches of flattened documents (no sentence-depth)
         :return:
         """
+        features = [feat for feat, _ in features_with_idx]
+        idx = [idx for _, idx in features_with_idx]
+
         if not isinstance(features[0], (dict, BatchEncoding)):
             features = [vars(f) for f in features]
         first = features[0]
@@ -271,18 +277,29 @@ class JsonDocumentDataset(Dataset):
             if k not in ("label", "label_ids") and v is not None and not isinstance(v, str):
                 if isinstance(v, torch.Tensor):
                     batch[k] = torch.stack([f[k] for f in features])
-                else:
+                elif not isinstance(v, str) and (not any([isinstance(e, str) for e in v]) if isinstance(v,
+                                                                                                        list) else True):  # skip strings as those cannot be converted to tensors
                     batch[k] = torch.tensor([f[k] for f in features])
+
+        batch["dataset_idx"] = torch.tensor(idx)
         return batch
 
     @staticmethod
-    def compositional_collator(features: List[Any]) -> Dict[str, Any]:
+    def compositional_collator(features_with_idx: List[Tuple[Dict, int]]) -> Dict[str, Any]:
         """
         Similar to HuggingFace default_data_collator, but does not have special handling for labels_ids etc
         Truncate input that's too long, but leave labels of original length
+
         Return a list (instead of tensor) that contains a variable number of sentences,
+
+        Usually used to collate batches of documents, where each document consists of a variable number of sentences,
+        where each sentence is padded to the same length.
+
         :return:
         """
+        features = [feat for feat, _ in features_with_idx]
+        idx = [idx for _, idx in features_with_idx]
+
         if not isinstance(features[0], (dict, BatchEncoding)):
             features = [vars(f) for f in features]
         first = features[0]
@@ -316,6 +333,8 @@ class JsonDocumentDataset(Dataset):
                     batch[k] = torch.stack([f[k] for f in features])
                 else:
                     batch[k] = [f[k] for f in features]
+
+        batch["dataset_idx"] = torch.tensor(idx)
         return batch
 
     def __extend_tokenised_input(self, tokenised_input: BatchEncoding, tokenised_document: BatchEncoding):
@@ -336,3 +355,33 @@ class JsonDocumentDataset(Dataset):
                 tokenised_input[k].append(v)
 
         return tokenised_input
+
+    def save_predictions(self, filepath: str):
+        with open(filepath, 'w') as f:
+            json.dump(self.tokenised_input.data, f)
+
+    def add_preds(self, indices: List[int], document_preds: List[float], token_preds: List[Any]):
+        """
+        Add the document and token-level predictions to the dataset
+
+        :param document_preds:
+        :param token_preds: can be a 1-d or 2-d list (depending if input flattened or not)
+        :return:
+        """
+        for i, idx in enumerate(indices):
+            self.tokenised_input["pred"][idx] = document_preds[i]
+            self.tokenised_input["token_preds"][idx] = token_preds[i]
+
+    def pretty_print(self, idx: int) -> Dict:
+        """
+        Get columns the most important for inclusion in the print
+        :param idx:
+        :return:
+        """
+        res, _ = self[idx]
+        final_dct = {}
+        for k, v in res.items():
+            if k in ['attention_mask', 'input_ids']:
+                continue
+            final_dct[k] = v
+        return final_dct

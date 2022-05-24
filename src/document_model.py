@@ -41,6 +41,9 @@ class DocumentModel(torch.nn.Module):
         # Soft Attention layer
         self.soft_attention_layer = SoftAttentionLayer(self.config, self.lm_config.hidden_size)
 
+        # sigmoid to convert document logits to probs
+        self.document_probs_layer = torch.nn.Sigmoid() if self.config.num_labels == 1 else torch.nn.Softmax(dim=1)
+
         # Initialise layers
         self.__init_weights(self.cls_dropout)
         self.__init_weights(self.cls_logit_layer)
@@ -76,7 +79,14 @@ class DocumentModel(torch.nn.Module):
             # use last attention layer
             token_outputs = self.__get_top_k(self.lm_outputs.attentions[-1], input_ids, self.document_logits)
 
-        return self.document_logits, token_outputs
+        self.document_probs = self.document_probs_layer(self.document_logits)
+
+        if self.config.num_labels == 1:
+            document_preds = torch.round(self.document_probs[:, 0])
+        else:
+            document_preds = torch.argmax(self.document_probs, dim=1)
+
+        return document_preds, token_outputs
 
     def __init_weights(self, m):
         if self.config.initializer_name == "normal":
@@ -100,7 +110,7 @@ class DocumentModel(torch.nn.Module):
             # MSE
             criterion = torch.nn.MSELoss()
             document_targets_loss = document_targets.to(torch.float32)[:, None]
-            document_logits = torch.nn.Sigmoid()(self.document_logits)
+            document_logits = self.document_probs
         elif self.config.num_labels == 2:
             criterion = torch.nn.BCEWithLogitsLoss(weight=weights)
             document_targets_loss = torch.nn.functional.one_hot(document_targets,
