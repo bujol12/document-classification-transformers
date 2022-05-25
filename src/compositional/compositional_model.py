@@ -41,6 +41,9 @@ class CompositionalModel(torch.nn.Module):
         # Soft Attention directly on tokens
         self.soft_attention_tokens = SoftAttentionLayer(self.config, self.lm_config.hidden_size)
 
+        # sigmoid to convert document logits to probs
+        self.document_probs_layer = torch.nn.Sigmoid() if self.config.num_labels == 1 else torch.nn.Softmax(dim=1)
+
     def forward(self, input_ids, attention_mask, token_type_ids=None, position_ids=None, head_mask=None,
                 inputs_embeds=None, **kwargs):
         """
@@ -78,8 +81,8 @@ class CompositionalModel(torch.nn.Module):
                 last_token_idx = attention_mask_batch.shape[1] - torch.argmax(torch.fliplr(attention_mask_batch),
                                                                               dim=1)  # find first element beyond the last attn == 1
 
-                document_sent_attn_masks += [sent[1:last_token_idx[i]] for i, sent in enumerate(attention_mask_batch)]
-                document_sent_token_outputs += [sent[1:last_token_idx[i]] for i, sent in
+                document_sent_attn_masks += [sent[1:last_token_idx[i]].to('cpu') for i, sent in enumerate(attention_mask_batch)]
+                document_sent_token_outputs += [sent[1:last_token_idx[i]].to('cpu') for i, sent in
                                                 enumerate(lm_outputs.last_hidden_state)]
 
                 del input_ids_batch
@@ -121,7 +124,13 @@ class CompositionalModel(torch.nn.Module):
         document_logits_list = self.document_logits.detach().cpu().tolist()
         print(document_logits_list)
 
-        return self.document_logits, nested_token_outputs
+        self.document_probs = self.document_probs_layer(self.document_logits)
+        if self.config.num_labels == 1:
+            document_preds = torch.round(self.document_probs[:, 0])
+        else:
+            document_preds = torch.argmax(self.document_probs, dim=1)
+
+        return document_preds, nested_token_outputs
 
     def loss(self, document_targets, weights=None):
         assert len(set(document_targets.tolist())) <= 2  # only support binary for now
@@ -133,7 +142,7 @@ class CompositionalModel(torch.nn.Module):
             # MSE
             criterion = torch.nn.MSELoss()
             document_targets_loss = document_targets.to(torch.float32)[:, None]
-            document_logits = torch.nn.Sigmoid()(self.document_logits)
+            document_logits = self.document_probs
         elif self.config.num_labels == 2:
             criterion = torch.nn.BCEWithLogitsLoss(weight=weights)
             document_targets_loss = torch.nn.functional.one_hot(document_targets,
