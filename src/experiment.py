@@ -1,22 +1,19 @@
 import logging
 import math
-import gc
 import datetime
 import os
 import json
-import time
-import random
 
 from collections import OrderedDict
 from copy import deepcopy
 
 import torch
 
-from transformers import set_seed, get_constant_schedule_with_warmup, get_linear_schedule_with_warmup, PretrainedConfig, \
+from transformers import set_seed, get_linear_schedule_with_warmup, PretrainedConfig, \
     AutoConfig
 from torch.utils.data import DataLoader
 
-from .compositional_model import CompositionalModel
+from src.compositional.compositional_model import CompositionalModel
 from .document_model import DocumentModel
 from .json_document_dataset import JsonDocumentDataset
 from .config import Config
@@ -128,7 +125,7 @@ class Experiment:
                 self.train_dataset.add_preds(indices=orig_batch["dataset_idx"],
                                              document_preds=document_logits.detach().cpu().tolist(),
                                              token_preds=self.__convert_token_preds_to_words(
-                                                 token_outputs.detach().cpu().tolist(), orig_batch))
+                                                 token_outputs, orig_batch))
 
                 loss = self.model.loss(batch["label"], weights=weights)
                 loss = loss / self.config.gradient_accumulation_steps
@@ -219,7 +216,7 @@ class Experiment:
                 eval_dataset.add_preds(indices=orig_batch["dataset_idx"],
                                        document_preds=document_logits.detach().cpu().tolist(),
                                        token_preds=self.__convert_token_preds_to_words(
-                                           token_outputs.detach().cpu().tolist(), orig_batch))
+                                           token_outputs, orig_batch))
 
                 total_loss += len(batch["label"]) * self.model.loss(batch["label"]).detach().cpu()
 
@@ -275,23 +272,43 @@ class Experiment:
         new_token_preds = []
 
         # Go through the batch
-        for i, doc in enumerate(token_preds):
+        for i, doc_preds in enumerate(token_preds):
             # score for each word initially is 0
-            word_preds = torch.zeros(max(dataset['word_ids'][i]) + 1, dtype=torch.float)
 
-            # Iterate through tokens
-            for j in range(len(doc)):
-                if dataset['word_ids'][i][j] == -1:
-                    # skip special tokens that do not map to words
-                    continue
+            if self.config.compose_sentence_representations:
+                # tokens nested into sentences
+                word_preds = [[0.0 for _ in range(max(words_sent) + 1)] for words_sent in dataset['word_ids'][i]]
+                for j, sent_preds in enumerate(doc_preds):  # sentences
+                    for k, token_pred in enumerate(sent_preds):  # tokens
+                        if dataset['word_ids'][i][j][k] == -1:
+                            # skip special tokens that do not map to words
+                            continue
 
-                # score for word is the maximum of prev max and current token score
-                word_preds[dataset['word_ids'][i][j]] = max(
-                    word_preds[dataset['word_ids'][i][j]], doc[j])
+                        # score for word is the maximum of prev max and current token score
+                        word_preds[j][dataset['word_ids'][i][j][k]] = max(
+                            word_preds[j][dataset['word_ids'][i][j][k]], token_pred)
 
-            # assign the same score to the tokens everywhere in the same word
-            new_token_preds.append([word_preds[dataset['word_ids'][i][j]].item() if
-                                    dataset['word_ids'][i][j] != -1 else -100 for j in range(len(doc))])
+
+                    sent_token_preds = [word_preds[j][dataset['word_ids'][i][j][k]] if
+                                        dataset['word_ids'][i][j][k] != -1 else -100 for k in range(len(sent_preds))]
+                    new_token_preds.append(sent_token_preds)
+
+            else:
+                word_preds = [0.0 for _ in range(max(dataset['word_ids'][i]) + 1)]
+
+                # Iterate through tokens
+                for j in range(len(doc_preds)):
+                    if dataset['word_ids'][i][j] == -1:
+                        # skip special tokens that do not map to words
+                        continue
+
+                    # score for word is the maximum of prev max and current token score
+                    word_preds[dataset['word_ids'][i][j]] = max(
+                        word_preds[dataset['word_ids'][i][j]], doc_preds[j])
+
+                # assign the same score to the tokens everywhere in the same word
+                new_token_preds.append([word_preds[dataset['word_ids'][i][j]].item() if
+                                        dataset['word_ids'][i][j] != -1 else -100 for j in range(len(doc_preds))])
         return new_token_preds
 
     def __move_batch(self, batch, device):

@@ -142,14 +142,20 @@ class JsonDocumentDataset(Dataset):
                 tokenised_document["sentence_preds"] = [None for _ in range(len(tokenised_document["sentence_labels"]))]
                 tokenised_document["pred"] = None
 
+                tokenised_document["words"] = self.input_tokens[doc_id]
+                tokenised_document["word_labels"] = self.token_labels[doc_id]
+                tokenised_document["word_preds"] = [None for _ in range(len(tokenised_document["word_labels"]))]
+
                 self.tokenised_input = self.__extend_tokenised_input(self.tokenised_input, tokenised_document)
         else:
             # tokenise each document separately
 
             # flatten the sentences into a single list representing tokens in document
             self.flat_input_tokens = []
-            for doc in self.input_tokens:
+            self.flat_input_token_labels = []
+            for doc, labels in zip(self.input_tokens, self.token_labels):
                 self.flat_input_tokens.append(list(itertools.chain(*doc)))
+                self.flat_input_token_labels.append(list(itertools.chain(*labels)))
 
             # tokenise
             self.tokenised_input = self.tokenise_flat_input(self.flat_input_tokens, self.token_labels)
@@ -161,6 +167,10 @@ class JsonDocumentDataset(Dataset):
             self.tokenised_input["sentence_preds"] = [None for _ in range(len(self.tokenised_input["label"]))]
 
             self.tokenised_input["pred"] = [None for _ in range(len(self.tokenised_input["label"]))]
+
+            self.tokenised_input["words"] = self.flat_input_tokens
+            self.tokenised_input["word_labels"] = self.flat_input_token_labels
+            self.tokenised_input["word_preds"] = [None for _ in range(len(self.flat_input_token_labels))]
 
     def tokenise_flat_input(self, flat_input_tokens, token_labels):
         """

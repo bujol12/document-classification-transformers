@@ -3,7 +3,6 @@
   "infer_labels": true,
   "seed": 20,
   "max_transformer_input_len": 512,
-  "compose_sentence_representations": false,
   "train_batch_size": 64,
   "eval_batch_size": 128,
   "num_labels": 2,
@@ -11,9 +10,10 @@
   "gradient_accumulation_steps": 1,
   "stop_if_no_improvement_n_epochs": -1,
   "dataset_name": "fce",
-  "weighted_loss": true,
+  "weighted_loss": false,
   "soft_attention": true,
   "predict_document_label_from_cls": false,
-  "token_loss_gamma": 10.0,
-  "top_k_token_loss_gamma": 1.0
+  "token_loss_gamma": 1.0,
+  "top_k_token_loss_gamma": 0.0,
+  "compose_sentence_representations": true
 }
