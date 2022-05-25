@@ -63,8 +63,8 @@ class CompositionalModel(torch.nn.Module):
             document_dataset = SentenceDataset(input_ids[batch_id], attention_mask[batch_id])
 
             data_loader = DataLoader(document_dataset, collate_fn=JsonDocumentDataset.own_default_collator,
-                                     batch_size=self.config.train_batch_size,
-                                     shuffle=False)  # TODO: change batch size config
+                                     batch_size=self.config.compose_sentence_batch_size,
+                                     shuffle=False)
 
             document_sent_attn_masks = []
             document_sent_token_outputs = []

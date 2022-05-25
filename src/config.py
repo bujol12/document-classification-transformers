@@ -34,6 +34,7 @@ class Config:
 
     # Compositional Approach Config
     compose_sentence_representations: bool = False  # if set true, apply transformer to each sentence separately. If false, apply transformer to the whole document
+    compositional_sentence_batch_size: int = 4 # how many sentence to feed into BERT at once
     compositional_model_max_token_len: int = 4096  # same as Longformer
 
     # Misc
