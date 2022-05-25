@@ -218,7 +218,7 @@ class Experiment:
                                        token_preds=self.__convert_token_preds_to_words(
                                            token_outputs, orig_batch))
 
-                total_loss += len(batch["label"]) * self.model.loss(batch["label"]).detach().cpu()
+                total_loss += len(batch["label"]) * self.model.loss(batch["label"].to(self.device)).detach().cpu()
 
             # free up GPU
             del document_logits
