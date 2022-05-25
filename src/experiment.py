@@ -127,7 +127,7 @@ class Experiment:
                                              token_preds=self.__convert_token_preds_to_words(
                                                  token_outputs, orig_batch))
 
-                loss = self.model.loss(batch["label"], weights=weights)
+                loss = self.model.loss(batch["label"].to(self.device), weights=weights)
                 loss = loss / self.config.gradient_accumulation_steps
                 loss.backward()
 
