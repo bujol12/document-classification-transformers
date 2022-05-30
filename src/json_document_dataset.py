@@ -287,6 +287,8 @@ class JsonDocumentDataset(Dataset):
             if k not in ("label", "label_ids") and v is not None and not isinstance(v, str):
                 if isinstance(v, torch.Tensor):
                     batch[k] = torch.stack([f[k] for f in features])
+                if k in ("word_labels"): # word labels aren't of the same shape for each (different number of words)
+                    batch[k] = [f[k] for f in features]
                 elif not isinstance(v, str) and (not any([isinstance(e, str) for e in v]) if isinstance(v,
                                                                                                         list) else True):  # skip strings as those cannot be converted to tensors
                     batch[k] = torch.tensor([f[k] for f in features])
