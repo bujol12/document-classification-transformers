@@ -297,6 +297,10 @@ class Experiment:
                         continue
 
                     # score for word is the maximum of prev max and current token score
+                    # print(dataset['word_ids'][i][j], len(word_preds))
+                    # print(word_preds[dataset['word_ids'][i][j]])
+                    # print(doc_preds, j)
+                    # print(doc_preds[j])
                     word_preds[dataset['word_ids'][i][j]] = max(
                         word_preds[dataset['word_ids'][i][j]], doc_preds[j])
 
