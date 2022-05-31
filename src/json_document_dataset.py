@@ -196,7 +196,7 @@ class JsonDocumentDataset(Dataset):
         # tokenise
         tokenised_input = cls.tokeniser(flat_input_tokens, is_split_into_words=True,
                                          #max_length=cls.config.max_transformer_input_len,
-                                         padding="max_length",
+                                         padding="longest",
                                          truncation=True)
 
         # assign token-level labels
@@ -317,8 +317,7 @@ class JsonDocumentDataset(Dataset):
         batch["dataset_idx"] = torch.tensor(idx)
         return batch
 
-    @staticmethod
-    def compositional_collator(features_with_idx: List[Tuple[Dict, int]]) -> Dict[str, Any]:
+    def compositional_collator(self, features_with_idx: List[Tuple[Dict, int]]) -> Dict[str, Any]:
         """
         Similar to HuggingFace default_data_collator, but does not have special handling for labels_ids etc
         Truncate input that's too long, but leave labels of original length
@@ -330,42 +329,49 @@ class JsonDocumentDataset(Dataset):
 
         :return:
         """
-        features = [feat for feat, _ in features_with_idx]
+        # split features and idx lists
+        features = {}
+        for feat, _ in features_with_idx:
+            for k, v in feat.items():
+                features[k] = features.get(k, []) + [v]
         idx = [idx for _, idx in features_with_idx]
 
-        if not isinstance(features[0], (dict, BatchEncoding)):
-            features = [vars(f) for f in features]
-        first = features[0]
+        # tokenise the batch
+        features = self.__tokenise_and_align(**features)
+
+        for idx_val in idx:
+            self.tokenised_input[idx_val] = {k: v[idx_val] for k, v in features.items()}
+
         batch = {}
 
         # Special handling for labels.
         # Ensure that tensor is created with the correct type
         # (it should be automatically the case, but let's make sure of it.)
-        if "label" in first and first["label"] is not None:
-            label = first["label"].item() if isinstance(first["label"], torch.Tensor) else first["label"]
+        if "label" in features and features["label"][0] is not None:
+            label = features["label"][0].item() if isinstance(features["label"][0], torch.Tensor) else features["label"][0]
             dtype = torch.long if isinstance(label, int) else torch.float
-            batch["label"] = torch.tensor([f["label"] for f in features], dtype=dtype)
-        if "label_ids" in first and first["label_ids"] is not None:
-            if isinstance(first["label_ids"], torch.Tensor):
-                batch["label_ids"] = torch.stack([f["label_ids"] for f in features])
+            batch["label"] = torch.tensor([f for f in features["label"]], dtype=dtype)
+        if "label_ids" in features and features["label_ids"][0] is not None:
+            if isinstance(features["label_ids"][0], torch.Tensor):
+                batch["label_ids"] = torch.stack([f for f in features["label_ids"]])
             else:
-                dtype = torch.long if type(first["label_ids"][0]) is int else torch.float
+                dtype = torch.long if type(features["label_ids"][0][0]) is int else torch.float
                 batch["label_ids"] = [  # pad each document individually
-                    torch.nn.utils.rnn.pad_sequence([torch.tensor(sent_label_ids) for sent_label_ids in f["label_ids"]],
+                    torch.nn.utils.rnn.pad_sequence([torch.tensor(sent_label_ids) for sent_label_ids in f],
                                                     batch_first=True, padding_value=-100)
-                    for f in features]
+                    for f in features["label_ids"]]
 
                 # pad all label ids to be of the same length across the batch, -100 shows end of original label_ids
                 # batch["label_ids"] = torch.tensor([f["label_ids"] for f in features], dtype=dtype)
 
         # Handling of all other possible keys.
         # Again, we will use the first element to figure out which key/values are not None for this model.
-        for k, v in first.items():
-            if k not in ("label", "label_ids") and v is not None and not isinstance(v, str):
-                if isinstance(v, torch.Tensor):
-                    batch[k] = torch.stack([f[k] for f in features])
+        for k, v in features.items():
+            if k not in ("label", "label_ids") and v[0] is not None and not isinstance(v[0], str):
+                if isinstance(v[0], torch.Tensor):
+                    batch[k] = torch.stack([f for f in features[k]])
                 else:
-                    batch[k] = [f[k] for f in features]
+                    batch[k] = [f for f in features[k]]
 
         batch["dataset_idx"] = torch.tensor(idx)
         return batch
@@ -404,7 +410,10 @@ class JsonDocumentDataset(Dataset):
         """
         for i, idx in enumerate(indices):
             self.tokenised_input[idx]["pred"] = document_preds[i]
-            self.tokenised_input[idx]["token_preds"] = token_preds[i]
+            if token_preds != []:
+                self.tokenised_input[idx]["token_preds"] = token_preds[i]
+            else:
+                self.tokenised_input[idx]["token_preds"] = None
 
     def pretty_print(self, idx: int) -> Dict:
         """

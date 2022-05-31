@@ -64,8 +64,7 @@ class CompositionalModel(torch.nn.Module):
         for batch_id in range(batch_size):
             # prepare data loader
             document_dataset = SentenceDataset(input_ids[batch_id], attention_mask[batch_id])
-
-            data_loader = DataLoader(document_dataset, collate_fn=JsonDocumentDataset.own_default_collator,
+            data_loader = DataLoader(document_dataset, collate_fn=document_dataset.own_default_collator,
                                      batch_size=self.config.compositional_sentence_batch_size,
                                      shuffle=False)
 
@@ -110,19 +109,19 @@ class CompositionalModel(torch.nn.Module):
                 0, self.config.compositional_model_max_token_len - batch_attention_masks_tensor.shape[1], 0, 0),
                                                                     value=0)[0]
 
+
         self.document_logits, self.token_outputs = self.soft_attention_tokens(
             token_embeddings.to(self.device), token_attentions.to(self.device))
 
         nested_token_outputs = []
-        for doc_id, sentence_boundaries in enumerate(sent_boundaries):
-            doc = []
-            for sent_id in range(len(sentence_boundaries) - 1):
-                start_idx, end_idx = sentence_boundaries[sent_id], sentence_boundaries[sent_id + 1]
-                doc.append(self.token_outputs[doc_id, start_idx:end_idx].detach().cpu().tolist())
-            nested_token_outputs.append(doc)
+        # for doc_id, sentence_boundaries in enumerate(sent_boundaries):
+        #     doc = []
+        #     for sent_id in range(len(sentence_boundaries) - 1):
+        #         start_idx, end_idx = sentence_boundaries[sent_id], sentence_boundaries[sent_id + 1]
+        #         doc.append(self.token_outputs[doc_id, start_idx:end_idx].detach().cpu().tolist())
+        #     nested_token_outputs.append(doc)
 
         document_logits_list = self.document_logits.detach().cpu().tolist()
-        print(document_logits_list)
 
         self.document_probs = self.document_probs_layer(self.document_logits)
         if self.config.num_labels == 1:
