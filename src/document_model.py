@@ -55,14 +55,28 @@ class DocumentModel(torch.nn.Module):
         :param kwargs:
         :return:
         """
-        self.lm_outputs = self.language_model(
-            input_ids,
-            attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
-            position_ids=position_ids,
-            head_mask=head_mask,
-            inputs_embeds=inputs_embeds,
-        )  # last_hidden_state, hidden_states, attentions
+        if "longformer" in self.config.transformers_model_name_or_path:
+            global_attention_mask = torch.zeros_like(attention_mask)
+            global_attention_mask[:, 0] = 1
+
+            self.lm_outputs = self.language_model(
+                input_ids,
+                attention_mask=attention_mask,
+                token_type_ids=token_type_ids,
+                position_ids=position_ids,
+                head_mask=head_mask,
+                inputs_embeds=inputs_embeds,
+                global_attention_mask=global_attention_mask
+            )  # last_hidden_state, hidden_states, attentions
+        else:
+            self.lm_outputs = self.language_model(
+                input_ids,
+                attention_mask=attention_mask,
+                token_type_ids=token_type_ids,
+                position_ids=position_ids,
+                head_mask=head_mask,
+                inputs_embeds=inputs_embeds
+            )  # last_hidden_state, hidden_states, attentions
 
         token_transformer_outputs = self.lm_outputs.last_hidden_state[:, 1:]
         token_outputs = None
@@ -141,8 +155,8 @@ class DocumentModel(torch.nn.Module):
 
         # aggregate
         mean_last_layer = torch.mean(attention_layer, dim=1)
-        cls_mean_attention = mean_last_layer[:, 0, :]
-        input_size = attention_layer.shape[-1] - 1  # excluse CLS
+        cls_mean_attention = mean_last_layer[:, :, 0]
+        input_size = attention_layer.shape[-2] - 1  # excluse CLS
 
         token_scores = []
 
