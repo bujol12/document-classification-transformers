@@ -3,8 +3,8 @@ import torch.nn.functional as F
 
 from sklearn.metrics import average_precision_score, f1_score, precision_score, recall_score, accuracy_score
 
-
 from .json_document_dataset import JsonDocumentDataset
+
 
 class Metrics:
     token_acc = None
@@ -20,8 +20,8 @@ class Metrics:
             :param loss:
             :return: metric class
         """
-        self.y_preds = torch.tensor(dataset.tokenised_input["pred"])
-        y_true = torch.tensor(dataset.tokenised_input["label"])
+        self.y_preds = torch.tensor([doc["pred"] for doc in dataset.tokenised_input])
+        y_true = torch.tensor([doc["label"] for doc in dataset.tokenised_input])
 
         self.num_labels = self.y_preds.shape[-1]
 
@@ -43,8 +43,8 @@ class Metrics:
         self.loss = loss
 
         # token level, if present
-        token_preds = dataset.tokenised_input["token_preds"]
-        token_true = dataset.tokenised_input["label_ids"]
+        token_preds = [doc["token_preds"] for doc in dataset.tokenised_input]
+        token_true = [doc["label_ids"] for doc in dataset.tokenised_input]
 
         if token_preds != [] and token_true != []:
             # pad all true tokens to be of the same length (with -100)

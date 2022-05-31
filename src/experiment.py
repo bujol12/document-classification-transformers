@@ -57,15 +57,10 @@ class Experiment:
         if eval_data_filepath is not None:
             self.eval_dataset = JsonDocumentDataset(eval_data_filepath, self.config)
 
-        # Create collator for DataLoaders
-        if self.config.compose_sentence_representations:
-            self.data_collator = JsonDocumentDataset.compositional_collator
-        else:
-            self.data_collator = JsonDocumentDataset.own_default_collator
-
         # Data loaders
         if self.train_dataset is not None:
-            self.train_dataloader = DataLoader(self.train_dataset, collate_fn=self.data_collator,
+            self.train_dataloader = DataLoader(self.train_dataset,
+                                               collate_fn=self.train_dataset.own_default_collator if not self.config.compose_sentence_representations else self.train_dataset.compositional_collator,
                                                batch_size=self.config.train_batch_size, shuffle=True)
 
         # Move model to our chosen device
@@ -188,7 +183,7 @@ class Experiment:
                     return
 
     def eval(self, eval_dataset):
-        data_loader = DataLoader(eval_dataset, collate_fn=self.data_collator, batch_size=self.config.eval_batch_size)
+        data_loader = DataLoader(eval_dataset, collate_fn=eval_dataset.own_default_collator if not self.config.compose_sentence_representations else eval_dataset.compositional_collator, batch_size=self.config.eval_batch_size)
 
         # double check the model is moved to self.device, if not, move it
         if next(self.model.parameters()).device != self.device:
@@ -288,7 +283,6 @@ class Experiment:
                         word_preds[j][dataset['word_ids'][i][j][k]] = max(
                             word_preds[j][dataset['word_ids'][i][j][k]], token_pred)
 
-
                     sent_token_preds = [word_preds[j][dataset['word_ids'][i][j][k]] if
                                         dataset['word_ids'][i][j][k] != -1 else -100 for k in range(len(sent_preds))]
                     new_token_preds.append(sent_token_preds)
@@ -307,7 +301,7 @@ class Experiment:
                         word_preds[dataset['word_ids'][i][j]], doc_preds[j])
 
                 # assign the same score to the tokens everywhere in the same word
-                new_token_preds.append([word_preds[dataset['word_ids'][i][j]].item() if
+                new_token_preds.append([word_preds[dataset['word_ids'][i][j]] if
                                         dataset['word_ids'][i][j] != -1 else -100 for j in range(len(doc_preds))])
         return new_token_preds
 

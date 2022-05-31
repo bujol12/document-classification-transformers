@@ -81,6 +81,9 @@ class DocumentModel(torch.nn.Module):
 
         self.document_probs = self.document_probs_layer(self.document_logits)
 
+        if token_outputs is not None:
+            token_outputs = [[pred.item() for pred in doc] for doc in token_outputs]
+
         if self.config.num_labels == 1:
             document_preds = torch.round(self.document_probs[:, 0])
         else:
