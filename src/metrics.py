@@ -71,7 +71,8 @@ class Metrics:
                 token_true = torch.nn.utils.rnn.pad_sequence(
                     [torch.tensor(labels) for labels in token_true], batch_first=True, padding_value=-100)
 
-                token_preds = torch.tensor(token_preds)
+                token_preds = torch.nn.utils.rnn.pad_sequence(
+                    [torch.tensor(labels) for labels in token_preds], batch_first=True, padding_value=-100)
                 self.token_true = token_true.view(-1)
 
                 if token_true.shape[-1] - token_preds.shape[-1] > 0:
