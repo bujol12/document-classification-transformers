@@ -291,7 +291,7 @@ class Experiment:
                 word_preds = [0.0 for _ in range(max(dataset['word_ids'][i]) + 1)]
 
                 # Iterate through tokens
-                for j in range(len(doc_preds)):
+                for j in range(len(dataset['input_ids'][i])):
                     if dataset['word_ids'][i][j] == -1:
                         # skip special tokens that do not map to words
                         continue
@@ -302,7 +302,7 @@ class Experiment:
 
                 # assign the same score to the tokens everywhere in the same word
                 new_token_preds.append([word_preds[dataset['word_ids'][i][j]] if
-                                        dataset['word_ids'][i][j] != -1 else -100 for j in range(len(doc_preds))])
+                                        dataset['word_ids'][i][j] != -1 else -100 for j in range(len(dataset['input_ids'][i]))])
         return new_token_preds
 
     def __move_batch(self, batch, device):

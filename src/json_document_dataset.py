@@ -339,8 +339,8 @@ class JsonDocumentDataset(Dataset):
         # tokenise the batch
         features = self.__tokenise_and_align(**features)
 
-        for idx_val in idx:
-            self.tokenised_input[idx_val] = {k: v[idx_val] for k, v in features.items()}
+        for i, idx_val in enumerate(idx):
+            self.tokenised_input[idx_val] = {k: v[i] for k, v in features.items()}
 
         batch = {}
 
