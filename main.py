@@ -28,7 +28,7 @@ if __name__ == "__main__":
 
     experiment.train()
 
-    results = experiment.eval()
+    results = experiment.eval(experiment.eval_dataset)
 
     print()
     logger.info("----------Final Eval Performance---------")
@@ -37,3 +37,5 @@ if __name__ == "__main__":
     logger.info(f"Saving the model & results to: {experiment.experiment_folder}")
     experiment.save_results(results, "eval_results")
     experiment.save_model("final_model.torch")
+
+    experiment.save_predictions(experiment.eval_dataset, "eval_predictions.json")
