@@ -52,6 +52,7 @@ class CompositionalModel(torch.nn.Module):
         :return:
         """
         batch_size = len(input_ids)
+        assert batch_size == 1
 
         # apply transformers to the whole batch per sentence, until run out of sentences
         self.token_outputs = []
@@ -61,57 +62,57 @@ class CompositionalModel(torch.nn.Module):
         token_embeddings = torch.zeros((batch_size, self.config.compositional_model_max_token_len, self.lm_config.hidden_size))
         token_attentions = torch.zeros((batch_size, self.config.compositional_model_max_token_len))
 
-        for batch_id in range(batch_size):
-            # prepare data loader
-            document_dataset = SentenceDataset(input_ids[batch_id], attention_mask[batch_id])
-            data_loader = DataLoader(document_dataset, collate_fn=document_dataset.own_default_collator,
-                                     batch_size=self.config.compositional_sentence_batch_size,
-                                     shuffle=False)
+        batch_id = 0
+        # prepare data loader
+        document_dataset = SentenceDataset(input_ids[batch_id], attention_mask[batch_id])
+        data_loader = DataLoader(document_dataset, collate_fn=document_dataset.own_default_collator,
+                                 batch_size=self.config.compositional_sentence_batch_size,
+                                 shuffle=False)
 
-            document_sent_attn_masks = []
-            document_sent_token_outputs = []
+        document_sent_attn_masks = []
+        document_sent_token_outputs = []
 
-            for batch_sentences in data_loader:
-                input_ids_batch, attention_mask_batch = batch_sentences['input_ids'].to(self.device), batch_sentences[
-                    'attention_mask'].to(self.device)
+        for batch_sentences in data_loader:
+            input_ids_batch, attention_mask_batch = batch_sentences['input_ids'].to(self.device), batch_sentences[
+                'attention_mask'].to(self.device)
 
-                lm_outputs = self.language_model(input_ids_batch, attention_mask=attention_mask_batch)
+            lm_outputs = self.language_model(input_ids_batch, attention_mask=attention_mask_batch)
 
-                last_token_idx = attention_mask_batch.shape[1] - torch.argmax(torch.fliplr(attention_mask_batch),
-                                                                              dim=1)  # find first element beyond the last attn == 1
+            last_token_idx = attention_mask_batch.shape[1] - torch.argmax(torch.fliplr(attention_mask_batch),
+                                                                          dim=1)  # find first element beyond the last attn == 1
 
-                document_sent_attn_masks += [sent[1:last_token_idx[i]].to('cpu') for i, sent in enumerate(attention_mask_batch)]
-                document_sent_token_outputs += [sent[1:last_token_idx[i]].to('cpu') for i, sent in
-                                                enumerate(lm_outputs.last_hidden_state)]
+            document_sent_attn_masks += [sent[1:last_token_idx[i]].to('cpu') for i, sent in enumerate(attention_mask_batch)]
+            document_sent_token_outputs += [sent[1:last_token_idx[i]].to('cpu') for i, sent in
+                                            enumerate(lm_outputs.last_hidden_state)]
 
-                del input_ids_batch
-                del attention_mask_batch
-                del last_token_idx
-                del lm_outputs
+            del input_ids_batch
+            del attention_mask_batch
+            del last_token_idx
+            del lm_outputs
 
-                torch.cuda.empty_cache()
+            torch.cuda.empty_cache()
 
-            batch_token_outputs_tensor = torch.cat(document_sent_token_outputs).unsqueeze_(0)
-            batch_attention_masks_tensor = torch.cat(document_sent_attn_masks).unsqueeze_(0)
+        batch_token_outputs_tensor = torch.cat(document_sent_token_outputs).unsqueeze_(0)
+        batch_attention_masks_tensor = torch.cat(document_sent_attn_masks).unsqueeze_(0)
 
-            tmp_sent_boundaries = [0]
-            curr_sent_boundary = 0
-            for tokens in document_sent_token_outputs:
-                curr_sent_boundary += tokens.shape[0]
-                tmp_sent_boundaries.append(curr_sent_boundary)
-            sent_boundaries.append(tmp_sent_boundaries)
+        # tmp_sent_boundaries = [0]
+        # curr_sent_boundary = 0
+        # for tokens in document_sent_token_outputs:
+        #     curr_sent_boundary += tokens.shape[0]
+        #     tmp_sent_boundaries.append(curr_sent_boundary)
+        # sent_boundaries.append(tmp_sent_boundaries)
 
-            # pad inputs to be the same length
-            token_embeddings[batch_id, :] = torch.nn.functional.pad(batch_token_outputs_tensor, (
-                0, 0, 0, self.config.compositional_model_max_token_len - batch_token_outputs_tensor.shape[1], 0, 0),
-                                                                    value=-100)[0]
-            token_attentions[batch_id, :] = torch.nn.functional.pad(batch_attention_masks_tensor, (
-                0, self.config.compositional_model_max_token_len - batch_attention_masks_tensor.shape[1], 0, 0),
-                                                                    value=0)[0]
+        # # pad inputs to be the same length
+        # token_embeddings[batch_id, :] = torch.nn.functional.pad(batch_token_outputs_tensor, (
+        #     0, 0, 0, self.config.compositional_model_max_token_len - batch_token_outputs_tensor.shape[1], 0, 0),
+        #                                                         value=-100)[0]
+        # token_attentions[batch_id, :] = torch.nn.functional.pad(batch_attention_masks_tensor, (
+        #     0, self.config.compositional_model_max_token_len - batch_attention_masks_tensor.shape[1], 0, 0),
+        #                                                         value=0)[0]
 
 
         self.document_logits, self.token_outputs = self.soft_attention_tokens(
-            token_embeddings.to(self.device), token_attentions.to(self.device))
+            batch_token_outputs_tensor.to(self.device), batch_attention_masks_tensor.to(self.device))
 
         nested_token_outputs = []
         # for doc_id, sentence_boundaries in enumerate(sent_boundaries):
@@ -121,7 +122,7 @@ class CompositionalModel(torch.nn.Module):
         #         doc.append(self.token_outputs[doc_id, start_idx:end_idx].detach().cpu().tolist())
         #     nested_token_outputs.append(doc)
 
-        document_logits_list = self.document_logits.detach().cpu().tolist()
+        # document_logits_list = self.document_logits.detach().cpu().tolist()
 
         self.document_probs = self.document_probs_layer(self.document_logits)
         if self.config.num_labels == 1:
