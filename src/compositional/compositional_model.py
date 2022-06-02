@@ -59,7 +59,8 @@ class CompositionalModel(torch.nn.Module):
         self.document_outputs = []
         sent_boundaries = []
 
-        token_embeddings = torch.zeros((batch_size, self.config.compositional_model_max_token_len, self.lm_config.hidden_size))
+        token_embeddings = torch.zeros(
+            (batch_size, self.config.compositional_model_max_token_len, self.lm_config.hidden_size))
         token_attentions = torch.zeros((batch_size, self.config.compositional_model_max_token_len))
 
         batch_id = 0
@@ -81,7 +82,8 @@ class CompositionalModel(torch.nn.Module):
             last_token_idx = attention_mask_batch.shape[1] - torch.argmax(torch.fliplr(attention_mask_batch),
                                                                           dim=1)  # find first element beyond the last attn == 1
 
-            document_sent_attn_masks += [sent[1:last_token_idx[i]].to('cpu') for i, sent in enumerate(attention_mask_batch)]
+            document_sent_attn_masks += [sent[1:last_token_idx[i]].to('cpu') for i, sent in
+                                         enumerate(attention_mask_batch)]
             document_sent_token_outputs += [sent[1:last_token_idx[i]].to('cpu') for i, sent in
                                             enumerate(lm_outputs.last_hidden_state)]
 
@@ -95,14 +97,7 @@ class CompositionalModel(torch.nn.Module):
         batch_token_outputs_tensor = torch.cat(document_sent_token_outputs).unsqueeze_(0)
         batch_attention_masks_tensor = torch.cat(document_sent_attn_masks).unsqueeze_(0)
 
-        # tmp_sent_boundaries = [0]
-        # curr_sent_boundary = 0
-        # for tokens in document_sent_token_outputs:
-        #     curr_sent_boundary += tokens.shape[0]
-        #     tmp_sent_boundaries.append(curr_sent_boundary)
-        # sent_boundaries.append(tmp_sent_boundaries)
-
-        # # pad inputs to be the same length
+        # pad inputs to be the same length
         # token_embeddings[batch_id, :] = torch.nn.functional.pad(batch_token_outputs_tensor, (
         #     0, 0, 0, self.config.compositional_model_max_token_len - batch_token_outputs_tensor.shape[1], 0, 0),
         #                                                         value=-100)[0]
@@ -110,17 +105,20 @@ class CompositionalModel(torch.nn.Module):
         #     0, self.config.compositional_model_max_token_len - batch_attention_masks_tensor.shape[1], 0, 0),
         #                                                         value=0)[0]
 
-
         self.document_logits, self.token_outputs = self.soft_attention_tokens(
             batch_token_outputs_tensor.to(self.device), batch_attention_masks_tensor.to(self.device))
 
+        sent_boundaries = [0]
+        curr_sent_boundary = 0
+
+        for tokens in document_sent_token_outputs:
+            curr_sent_boundary += tokens.shape[0]
+            sent_boundaries.append(curr_sent_boundary)
+
         nested_token_outputs = []
-        # for doc_id, sentence_boundaries in enumerate(sent_boundaries):
-        #     doc = []
-        #     for sent_id in range(len(sentence_boundaries) - 1):
-        #         start_idx, end_idx = sentence_boundaries[sent_id], sentence_boundaries[sent_id + 1]
-        #         doc.append(self.token_outputs[doc_id, start_idx:end_idx].detach().cpu().tolist())
-        #     nested_token_outputs.append(doc)
+        for sent_id in range(len(sent_boundaries) - 1):
+            start_idx, end_idx = sent_boundaries[sent_id], sent_boundaries[sent_id + 1]
+            nested_token_outputs.append(self.token_outputs[0, start_idx:end_idx].detach().cpu().tolist())
 
         # document_logits_list = self.document_logits.detach().cpu().tolist()
 
@@ -130,7 +128,7 @@ class CompositionalModel(torch.nn.Module):
         else:
             document_preds = torch.argmax(self.document_probs, dim=1)
 
-        return document_preds, nested_token_outputs
+        return document_preds, [nested_token_outputs]
 
     def loss(self, document_targets, weights=None):
         assert len(set(document_targets.tolist())) <= 2  # only support binary for now
@@ -154,4 +152,6 @@ class CompositionalModel(torch.nn.Module):
 
         document_loss = criterion(document_logits, document_targets_loss)
 
-        return document_loss
+        token_loss = self.soft_attention_tokens.loss(document_targets)
+
+        return document_loss + self.config.token_loss_gamma * token_loss

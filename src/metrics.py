@@ -51,22 +51,29 @@ class Metrics:
             # pad all true tokens to be of the same length (with -100)
             if isinstance(token_true[0][0], (torch.Tensor, list)):
                 # if nested (containing sentence-level)
-                token_true = [torch.nn.utils.rnn.pad_sequence([torch.tensor(labels) for labels in doc], batch_first=True, padding_value=-100) for doc in token_true]
-                token_preds = [torch.tensor(doc) for doc in token_preds]
+
+                token_true = [
+                    torch.nn.utils.rnn.pad_sequence([torch.tensor(labels) for labels in doc], batch_first=True,
+                                                    padding_value=-100) for doc in token_true]
+                token_preds = [
+                    torch.nn.utils.rnn.pad_sequence([torch.tensor(labels) for labels in doc], batch_first=True,
+                                                    padding_value=-100) for doc in token_preds]
 
                 for i in range(len(token_preds)):
                     if token_true[i].shape[-1] - token_preds[i].shape[-1] > 0:
                         # pad with 0s for when the sequence length was longer than the maximum model length
                         token_preds[i] = torch.nn.functional.pad(token_preds[i],
                                                                  (
-                                                                 0, token_true[i].shape[-1] - token_preds[i].shape[-1]))
-
+                                                                     0, token_true[i].shape[-1] - token_preds[i].shape[
+                                                                         -1]))
 
                 token_true = [doc.view(-1) for doc in token_true]
                 token_preds = [doc.view(-1) for doc in token_preds]
 
-                self.token_preds = torch.nn.utils.rnn.pad_sequence([labels for labels in token_preds], batch_first=True, padding_value=-100).view(-1)
-                self.token_true = torch.nn.utils.rnn.pad_sequence([labels for labels in token_true], batch_first=True, padding_value=-100).view(-1)
+                self.token_preds = torch.nn.utils.rnn.pad_sequence([labels for labels in token_preds], batch_first=True,
+                                                                   padding_value=-100).view(-1)
+                self.token_true = torch.nn.utils.rnn.pad_sequence([labels for labels in token_true], batch_first=True,
+                                                                  padding_value=-100).view(-1)
             else:
                 token_true = torch.nn.utils.rnn.pad_sequence(
                     [torch.tensor(labels) for labels in token_true], batch_first=True, padding_value=-100)

@@ -3,6 +3,7 @@ import math
 import datetime
 import os
 import json
+import time
 
 from collections import OrderedDict
 from copy import deepcopy
@@ -103,9 +104,14 @@ class Experiment:
         weights = self.train_dataset.get_weights().to(
             self.device) if self.config.num_labels > 1 and self.config.weighted_loss else None  # for loss function
 
+        time_sum_secs = 0.0
+        time_epoch_cnt = 0
+
         for epoch in range(self.config.epochs):
             logger.info(f"Epoch {epoch + 1} Learning Rate: {lr_scheduler.get_last_lr()}")
             self.model.train()
+
+            start_time = time.time()
 
             for step, orig_batch in enumerate(self.train_dataloader):
                 if not self.config.compose_sentence_representations:
@@ -140,15 +146,21 @@ class Experiment:
 
                 torch.cuda.empty_cache()
 
+            end_time = time.time()
+
             # Evaluate at the end of each epoch
             train_performance = self.eval(self.train_dataset)
             eval_performance = self.eval(self.eval_dataset)
 
             print()
             logger.info(f"Finished epoch {epoch + 1} out of {self.config.epochs}")
+            logger.info(f"This iteration took {round(end_time-start_time)} seconds")
             logger.info(f"Training dataset performance: {train_performance.to_json()}")
             logger.info(f"Eval dataset performance: {eval_performance.to_json()}")
             print()
+
+            time_sum_secs += end_time - start_time
+            time_epoch_cnt += 1
 
             # early stopping check
             if self.config.stop_if_no_improvement_n_epochs != -1:
@@ -179,11 +191,14 @@ class Experiment:
                     logger.info(f"No improvement of eval loss after {early_stop_cnt} epochs, early stopping...")
                     # restore best model
                     self.model.load_state_dict(best_model_state_dict)
+                    break
 
-                    return
+        logger.info(f"Average time per epoch: {round(time_sum_secs / time_epoch_cnt)} seconds")
 
     def eval(self, eval_dataset):
-        data_loader = DataLoader(eval_dataset, collate_fn=eval_dataset.own_default_collator if not self.config.compose_sentence_representations else eval_dataset.compositional_collator, batch_size=self.config.eval_batch_size)
+        data_loader = DataLoader(eval_dataset,
+                                 collate_fn=eval_dataset.own_default_collator if not self.config.compose_sentence_representations else eval_dataset.compositional_collator,
+                                 batch_size=self.config.eval_batch_size)
 
         # double check the model is moved to self.device, if not, move it
         if next(self.model.parameters()).device != self.device:
@@ -273,6 +288,7 @@ class Experiment:
             if self.config.compose_sentence_representations:
                 # tokens nested into sentences
                 word_preds = [[0.0 for _ in range(max(words_sent) + 1)] for words_sent in dataset['word_ids'][i]]
+                sent_token_preds = []
                 for j, sent_preds in enumerate(doc_preds):  # sentences
                     for k, token_pred in enumerate(sent_preds):  # tokens
                         if dataset['word_ids'][i][j][k] == -1:
@@ -283,9 +299,10 @@ class Experiment:
                         word_preds[j][dataset['word_ids'][i][j][k]] = max(
                             word_preds[j][dataset['word_ids'][i][j][k]], token_pred)
 
-                    sent_token_preds = [word_preds[j][dataset['word_ids'][i][j][k]] if
-                                        dataset['word_ids'][i][j][k] != -1 else -100 for k in range(len(sent_preds))]
-                    new_token_preds.append(sent_token_preds)
+                    sent_token_preds.append([word_preds[j][dataset['word_ids'][i][j][k]] if
+                                             dataset['word_ids'][i][j][k] != -1 else -100 for k in
+                                             range(len(sent_preds))])
+                new_token_preds.append(sent_token_preds)
 
             else:
                 word_preds = [0.0 for _ in range(max(dataset['word_ids'][i]) + 1)]
@@ -297,16 +314,13 @@ class Experiment:
                         continue
 
                     # score for word is the maximum of prev max and current token score
-                    # print(dataset['word_ids'][i][j], len(word_preds))
-                    # print(word_preds[dataset['word_ids'][i][j]])
-                    # print(doc_preds, j)
-                    # print(doc_preds[j])
                     word_preds[dataset['word_ids'][i][j]] = max(
                         word_preds[dataset['word_ids'][i][j]], doc_preds[j])
 
                 # assign the same score to the tokens everywhere in the same word
                 new_token_preds.append([word_preds[dataset['word_ids'][i][j]] if
-                                        dataset['word_ids'][i][j] != -1 else -100 for j in range(len(dataset['input_ids'][i]))])
+                                        dataset['word_ids'][i][j] != -1 else -100 for j in
+                                        range(len(dataset['input_ids'][i]))])
         return new_token_preds
 
     def __move_batch(self, batch, device):

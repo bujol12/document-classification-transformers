@@ -81,12 +81,12 @@ class JsonDocumentDataset(Dataset):
         # Add Transformer tokenizer
         if "roberta" in config.transformers_model_name_or_path.lower() or "longformer" in config.transformers_model_name_or_path.lower():
             JsonDocumentDataset.tokeniser = AutoTokenizer.from_pretrained(config.transformers_model_name_or_path,
-                                                           add_prefix_space=True)
+                                                                          add_prefix_space=True)
         else:
             JsonDocumentDataset.tokeniser = AutoTokenizer.from_pretrained(config.transformers_model_name_or_path)
 
         self.tokenised_input = [None for _ in range(len(self.document_labels))]
-        #self.__tokenise_and_align()
+        # self.__tokenise_and_align()
 
     def get_weights(self, level="document"):
         """
@@ -195,9 +195,9 @@ class JsonDocumentDataset(Dataset):
 
         # tokenise
         tokenised_input = cls.tokeniser(flat_input_tokens, is_split_into_words=True,
-                                         #max_length=cls.config.max_transformer_input_len,
-                                         padding="longest",
-                                         truncation=True)
+                                        # max_length=cls.config.max_transformer_input_len,
+                                        padding="longest",
+                                        truncation=True)
 
         # assign token-level labels
         tokenised_input["label_ids"] = cls.__generate_tokenised_labels(token_labels, tokenised_input)
@@ -288,7 +288,8 @@ class JsonDocumentDataset(Dataset):
         # Ensure that tensor is created with the correct type
         # (it should be automatically the case, but let's make sure of it.)
         if "label" in features and features["label"][0] is not None:
-            label = features["label"][0].item() if isinstance(features["label"][0], torch.Tensor) else features["label"][0]
+            label = features["label"][0].item() if isinstance(features["label"][0], torch.Tensor) else \
+            features["label"][0]
             dtype = torch.long if isinstance(label, int) else torch.float
             batch["label"] = torch.tensor([f for f in features["label"]], dtype=dtype)
         if "label_ids" in features and features["label_ids"][0] is not None:
@@ -308,10 +309,10 @@ class JsonDocumentDataset(Dataset):
             if k not in ("label", "label_ids") and v[0] is not None and not isinstance(v[0], str):
                 if isinstance(v[0], torch.Tensor):
                     batch[k] = torch.stack([f for f in features[k]])
-                if k in ("word_labels"): # word labels aren't of the same shape for each (different number of words)
+                if k in ("word_labels"):  # word labels aren't of the same shape for each (different number of words)
                     batch[k] = [f for f in features[k]]
                 elif not isinstance(v[0], str) and (not any([isinstance(e, str) for e in v[0]]) if isinstance(v[0],
-                                                                                                        list) else True):  # skip strings as those cannot be converted to tensors
+                                                                                                              list) else True):  # skip strings as those cannot be converted to tensors
                     batch[k] = torch.tensor([f for f in features[k]])
 
         batch["dataset_idx"] = torch.tensor(idx)
@@ -348,7 +349,8 @@ class JsonDocumentDataset(Dataset):
         # Ensure that tensor is created with the correct type
         # (it should be automatically the case, but let's make sure of it.)
         if "label" in features and features["label"][0] is not None:
-            label = features["label"][0].item() if isinstance(features["label"][0], torch.Tensor) else features["label"][0]
+            label = features["label"][0].item() if isinstance(features["label"][0], torch.Tensor) else \
+            features["label"][0]
             dtype = torch.long if isinstance(label, int) else torch.float
             batch["label"] = torch.tensor([f for f in features["label"]], dtype=dtype)
         if "label_ids" in features and features["label_ids"][0] is not None:
@@ -398,7 +400,8 @@ class JsonDocumentDataset(Dataset):
 
     def save_predictions(self, filepath: str):
         with open(filepath, 'w') as f:
-            json.dump(self.tokenised_input, f)
+            json.dump([{"tokens": doc["tokens"], "token_preds": doc["token_preds"], "label": doc["label"],
+                        "pred": doc["pred"]} for doc in self.tokenised_input], f)
 
     def add_preds(self, indices: List[int], document_preds: List[float], token_preds: List[Any]):
         """

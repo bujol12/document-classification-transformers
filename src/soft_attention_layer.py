@@ -120,39 +120,17 @@ class SoftAttentionLayer(torch.nn.Module):
         :param document_targets: batch_size labels of the documents
         :return:
         """
-        # encourage the model to focus on some, but not all tokens by optimising
-        # minimum attention score to be close to 0
 
-        min_attentions, _ = torch.min(
-            torch.where(
-                self.__sequence_mask(self.inp_lengths, maxlen=self.transformers_attention_mask.shape[1]),
-                self.attention_scores,
-                torch.zeros_like(self.attention_scores) + 1e6,
-            ),
-            dim=1,
-        )
-        l2 = torch.mean(torch.square(min_attentions.view(-1)))
+        l2 = self.__minimum_weights_to_zero_loss(self.attention_scores, self.inp_lengths,
+                                                 self.transformers_attention_mask.shape[1])
 
-        # encourage the model to have some positive (=1) token labels if overall document label is positive
-        max_attentions, _ = torch.max(
-            torch.where(
-                self.__sequence_mask(self.inp_lengths, maxlen=self.transformers_attention_mask.shape[1]),
-                self.attention_scores,
-                torch.zeros_like(self.attention_scores) - 1e6,
-            ),
-            dim=1,
-        )
+        l3 = self.__maximum_weights_close_to_document_label_loss(self.attention_scores, document_targets,
+                                                                 self.inp_lengths,
+                                                                 self.transformers_attention_mask.shape[1])
 
-        l3 = torch.mean(
-            torch.square(max_attentions.view(-1) - document_targets.view(-1)))
+        l4 = self.__mean_weights_close_to_document_label_loss(self.attention_scores, self.inp_lengths, document_targets)
 
-        #### Positive sentences should have means closer to 1 than 0
-        l4 = torch.mean(
-            torch.square(torch.sum(self.attention_scores, dim=1) / self.inp_lengths - document_targets.view(-1)))
-
-        # l2 regularisation
-        # calculate mean squared values per document and average
-        l5 = torch.mean(torch.sum(torch.square(self.attention_scores), dim=1) / self.inp_lengths)
+        l5 = self.__l2_regularise_token_weights_loss(self.attention_scores, self.inp_lengths)
 
         l6 = self.__top_k_loss(document_targets)
 
@@ -220,3 +198,41 @@ class SoftAttentionLayer(torch.nn.Module):
         loss += torch.sum(torch.square(masked_attns)) / torch.sum(k_vals)  # average the mean sqaured error
 
         return loss
+
+    def __minimum_weights_to_zero_loss(self, attention_scores, inp_lengths, maxlen):
+        # encourage the model to focus on some, but not all tokens by optimising
+        # minimum attention score to be close to 0
+
+        min_attentions, _ = torch.min(
+            torch.where(
+                self.__sequence_mask(inp_lengths, maxlen=maxlen),
+                attention_scores,
+                torch.zeros_like(attention_scores) + 1e6,
+            ),
+            dim=1,
+        )
+        return torch.mean(torch.square(min_attentions.view(-1)))
+
+    def __maximum_weights_close_to_document_label_loss(self, attention_scores, document_targets, inp_lengths, maxlen):
+        # encourage the model to have some positive (=1) token labels if overall document label is positive
+        max_attentions, _ = torch.max(
+            torch.where(
+                self.__sequence_mask(inp_lengths, maxlen=maxlen),
+                attention_scores,
+                torch.zeros_like(attention_scores) - 1e6,
+            ),
+            dim=1,
+        )
+
+        return torch.mean(
+            torch.square(max_attentions.view(-1) - document_targets.view(-1)))
+
+    def __mean_weights_close_to_document_label_loss(self, attention_scores, inp_lengths, document_targets):
+        #### Positive sentences should have means closer to 1 than 0
+        return torch.mean(
+            torch.square(torch.sum(attention_scores, dim=1) / inp_lengths - document_targets.view(-1)))
+
+    def __l2_regularise_token_weights_loss(self, attention_scores, inp_lengths):
+        # l2 regularisation
+        # calculate mean squared values per document and average
+        return torch.mean(torch.sum(torch.square(attention_scores), dim=1) / inp_lengths)
