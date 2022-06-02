@@ -82,9 +82,9 @@ class CompositionalModel(torch.nn.Module):
             last_token_idx = attention_mask_batch.shape[1] - torch.argmax(torch.fliplr(attention_mask_batch),
                                                                           dim=1)  # find first element beyond the last attn == 1
 
-            document_sent_attn_masks += [sent[1:last_token_idx[i]].to('cpu') for i, sent in
+            document_sent_attn_masks += [sent[1:last_token_idx[i]] for i, sent in
                                          enumerate(attention_mask_batch)]
-            document_sent_token_outputs += [sent[1:last_token_idx[i]].to('cpu') for i, sent in
+            document_sent_token_outputs += [sent[1:last_token_idx[i]] for i, sent in
                                             enumerate(lm_outputs.last_hidden_state)]
 
             del input_ids_batch

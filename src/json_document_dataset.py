@@ -400,7 +400,7 @@ class JsonDocumentDataset(Dataset):
 
     def save_predictions(self, filepath: str):
         with open(filepath, 'w') as f:
-            json.dump([{"tokens": doc["tokens"], "token_preds": doc["token_preds"], "label": doc["label"],
+            json.dump([{"tokens": doc["tokens"], "token_preds": doc["token_preds"], "label_ids": doc["label_ids"], "label": doc["label"],
                         "pred": doc["pred"]} for doc in self.tokenised_input], f)
 
     def add_preds(self, indices: List[int], document_preds: List[float], token_preds: List[Any]):
