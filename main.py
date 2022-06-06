@@ -2,6 +2,7 @@ import argparse
 import logging
 
 from src.experiment import Experiment
+from src.json_document_dataset import JsonDocumentDataset
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +16,8 @@ def parse_args():
                         help='Path to the training dataset')
     parser.add_argument('--eval', dest='eval_dataset', type=str, default=None,
                         help='Path to the eval dataset')
+    parser.add_argument('--test', dest='test_dataset', type=str, default=None,
+                        help='Path to the test dataset')
 
     return parser.parse_args()
 
@@ -39,3 +42,17 @@ if __name__ == "__main__":
     experiment.save_model("final_model.torch")
 
     experiment.save_predictions(experiment.eval_dataset, "eval_predictions.json")
+
+    if args.test_dataset is not None:
+        logger.info("Running test dataset...")
+
+        test_dataset = JsonDocumentDataset(args.test_dataset, experiment.config)
+
+        results = experiment.eval(test_dataset)
+
+        print()
+        logger.info("----------Final Test Performance---------")
+        logger.info(results.to_json())
+
+        experiment.save_predictions(test_dataset, "test_predictions.json")
+
