@@ -8,6 +8,8 @@ if __name__ == "__main__":
         data = json.load(fhand)
 
     for doc_id, doc in enumerate(data):
+        pred, label = doc["pred"], doc["label"]
+        print(f"Document: {pred} {label}")
         for i in range(len(doc["tokens"])):
             if not isinstance(doc["tokens"][i], list):
                 if doc["tokens"][i] not in ("<pad>", "</s>"):
