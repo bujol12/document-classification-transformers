@@ -22,5 +22,6 @@
   "top_k_token_loss_gamma": 1.0,
   "top_k_bottom_k": false,
   "compose_sentence_representations": true,
-  "compositional_sentence_batch_size": 1
+  "compositional_sentence_batch_size": 64,
+  "top_k_pct": 0.50
 }
