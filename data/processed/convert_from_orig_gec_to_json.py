@@ -163,13 +163,41 @@ def main():
             output_dict["documents"][doc["id"]].append(doc)
     # aggregate outputs with the same idx and convert dict to list
     documents = []
+
+    pos_token_cnt = 0
+    pos_evidence_cnt = 0
+    neg_token_cnt = 0
+    neg_evidence_cnt = 0
+
+    token_cnt = 0
+    evidence_cnt = 0
+
     for idx, docs in output_dict["documents"].items():
         doc = deepcopy(docs[0])
+
+        if docs[0]["document_label"] == 0:
+            neg_token_cnt += sum([len(sent) for sent in docs[0]["token_labels"]])
+            neg_evidence_cnt += sum([sum(sent) for sent in docs[0]["token_labels"]])
+        else:
+            pos_token_cnt += sum([len(sent) for sent in docs[0]["token_labels"]])
+            pos_evidence_cnt += sum([sum(sent) for sent in docs[0]["token_labels"]])
+
+        token_cnt += sum([len(sent) for sent in docs[0]["token_labels"]])
+        evidence_cnt += sum([sum(sent) for sent in docs[0]["token_labels"]])
+
         for i in range(1, len(docs)):
             assert docs[i]["document_label"] == docs[0]["document_label"]
+            if docs[i]["document_label"] == 0:
+                neg_token_cnt +=  sum([len(sent) for sent in docs[i]["token_labels"]])
+                neg_evidence_cnt += sum([sum(sent) for sent in docs[i]["token_labels"]])
+            else:
+                pos_token_cnt += sum([len(sent) for sent in docs[i]["token_labels"]])
+                pos_evidence_cnt += sum([sum(sent) for sent in docs[i]["token_labels"]])
 
             doc["tokens"] += docs[i]["tokens"]
             doc["token_labels"] += docs[i]["token_labels"]
+            token_cnt += sum([len(sent) for sent in docs[i]["token_labels"]])
+            evidence_cnt += sum([sum(sent) for sent in docs[i]["token_labels"]])
 
             if doc["sentence_labels"] is not None:
                 doc["sentence_labels"] += docs[i]["sentence_labels"]
@@ -177,6 +205,14 @@ def main():
         documents.append(deepcopy(doc))
 
     output_dict["documents"] = deepcopy(documents)
+
+    try:
+        # only FCE correct
+        print(f"Average Evidence Pct: {round(100 * evidence_cnt / token_cnt)}%")
+        print(f"Average Evidence Pct: {round(100 * pos_evidence_cnt / pos_token_cnt)}% (Positive Class)")
+        print(f"Average Evidence Pct: {round(100 * neg_evidence_cnt / neg_token_cnt)}% (Negative Class)")
+    except:
+        pass
 
     # write to output json file
     with open(args.out, 'w') as f:

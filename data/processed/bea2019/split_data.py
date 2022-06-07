@@ -23,6 +23,31 @@ def main():
     train_docs = [input_json["documents"][idx] for idx in range(len(input_json["documents"])) if idx not in dev_idx]
     dev_docs = [input_json["documents"][idx] for idx in range(len(input_json["documents"])) if idx in dev_idx]
 
+
+    # Calculate evidence distribution per class on the dev dataset
+    pos_token_cnt = 0
+    pos_evidence_cnt = 0
+    neg_token_cnt = 0
+    neg_evidence_cnt = 0
+
+    token_cnt = 0
+    evidence_cnt = 0
+
+    for idx, doc in enumerate(dev_docs):
+        if doc["document_label"] == 0:
+            neg_token_cnt += sum([len(sent) for sent in doc["token_labels"]])
+            neg_evidence_cnt += sum([sum(sent) for sent in doc["token_labels"]])
+        else:
+            pos_token_cnt += sum([len(sent) for sent in doc["token_labels"]])
+            pos_evidence_cnt += sum([sum(sent) for sent in doc["token_labels"]])
+
+        token_cnt += sum([len(sent) for sent in doc["token_labels"]])
+        evidence_cnt += sum([sum(sent) for sent in doc["token_labels"]])
+
+    print(f"Average Evidence Pct: {round(100 * evidence_cnt / token_cnt)}%")
+    print(f"Average Evidence Pct: {round(100 * pos_evidence_cnt / pos_token_cnt)}% (Positive Class)")
+    print(f"Average Evidence Pct: {round(100 * neg_evidence_cnt / neg_token_cnt)}% (Negative Class)")
+
     # store idx stored in the dataset
     dev_real_idx = [input_json["documents"][idx]["id"] for idx in range(len(input_json["documents"])) if
                     idx in dev_idx]
