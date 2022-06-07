@@ -119,7 +119,7 @@ class CompositionalModel(torch.nn.Module):
         for doc_id in range(batch_size):
             pad_size = max_doc_tokens_len - token_embeddings[doc_id].shape[0]
             token_embeddings[doc_id] = torch.unsqueeze(torch.vstack(
-                [token_embeddings[doc_id], torch.zeros((pad_size, self.lm_config.hidden_size))]), dim=0)
+                [token_embeddings[doc_id], torch.zeros((pad_size, self.lm_config.hidden_size))]).to(self.device), dim=0)
         token_embeddings = torch.cat(token_embeddings)
 
         self.document_logits, self.token_outputs = self.soft_attention_tokens(
