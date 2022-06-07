@@ -13,7 +13,7 @@
   "dataset_name": "fce",
   "lr": 1e-5,
   "initializer_name": "normal",
-  "weighted_loss": true,
+  "weighted_loss": false,
   "soft_attention": true,
   "predict_document_label_from_cls": false,
   "token_loss_gamma": 1.0,
@@ -22,5 +22,5 @@
   "min_max_token_loss_gamma": 0.0,
   "top_k_token_loss_gamma": 1.0,
   "top_k_bottom_k": false,
-  "top_k_pct": 0.40
+  "top_k_pct": 0.50
 }
