@@ -4,14 +4,15 @@
   "seed": 20,
   "max_transformer_input_len": 4096,
   "compose_sentence_representations": false,
-  "train_batch_size": 1,
+  "train_batch_size": 2,
   "eval_batch_size": 2,
   "num_labels": 2,
   "epochs": 20,
-  "gradient_accumulation_steps": 32,
+  "gradient_accumulation_steps": 16,
   "stop_if_no_improvement_n_epochs": 5,
   "dataset_name": "bea2019",
   "lr": 1e-5,
   "initializer_name": "normal",
-  "weighted_loss": true
+  "weighted_loss": true,
+  "top_k_pct": 0.10
 }

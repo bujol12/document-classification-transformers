@@ -13,5 +13,6 @@
   "dataset_name": "bea2019",
   "lr": 1e-5,
   "initializer_name": "normal",
-  "weighted_loss": true
+  "weighted_loss": false,
+  "top_k_pct": 0.10
 }
