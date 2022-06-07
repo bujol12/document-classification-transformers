@@ -54,5 +54,6 @@ if __name__ == "__main__":
         logger.info("----------Final Test Performance---------")
         logger.info(results.to_json())
 
+        experiment.save_results(results, "test_results")
         experiment.save_predictions(test_dataset, "test_predictions.json")
 
