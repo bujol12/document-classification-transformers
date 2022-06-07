@@ -22,5 +22,5 @@
   "min_max_token_loss_gamma": 0.0,
   "top_k_token_loss_gamma": 1.0,
   "top_k_bottom_k": false,
-  "top_k_pct": 0.10
+  "top_k_pct": 0.20
 }
