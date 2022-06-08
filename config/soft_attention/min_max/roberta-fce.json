@@ -1,7 +1,7 @@
 {
   "transformers_model_name_or_path": "roberta-base",
   "infer_labels": true,
-  "seed": 20,
+  "seed": 22,
   "max_transformer_input_len": 512,
   "compose_sentence_representations": false,
   "train_batch_size": 8,
