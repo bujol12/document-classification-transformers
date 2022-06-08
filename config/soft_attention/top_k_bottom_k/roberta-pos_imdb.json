@@ -20,7 +20,7 @@
   "regularisation_loss_gamma": 0.0,
   "mean_token_loss_gamma": 0.0,
   "min_max_token_loss_gamma": 0.0,
-  "top_k_token_loss_gamma": 1.0,
+  "top_k_token_loss_gamma": 10.0,
   "top_k_bottom_k": true,
   "top_k_pct": 0.10
 }
