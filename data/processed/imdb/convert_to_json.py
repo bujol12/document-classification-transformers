@@ -25,7 +25,8 @@ def main():
                                                                                                     "").strip()
             sentences = text.split(" . ")  # split into sentences. Doesn't split final . due to spaces
             # remove trailing spaces and newlines + add end of sentence dots back
-            sentences = [sent.strip().split(" ") for sent in sentences]
+            sentences = [sent.strip().split(" ") + ["."] for sent in sentences]
+            sentences[-1].pop() # remove extra dot
 
             doc = deepcopy(empty_doc)
             doc["tokens"] = sentences
