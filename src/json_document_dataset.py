@@ -199,9 +199,18 @@ class JsonDocumentDataset(Dataset):
                                         # max_length=cls.config.max_transformer_input_len,
                                         padding="longest",
                                         truncation=True)
-
         # assign token-level labels
-        tokenised_input["label_ids"] = cls.__generate_tokenised_labels(token_labels, tokenised_input)
+        #tokenised_input["label_ids"] = cls.__generate_tokenised_labels(token_labels, tokenised_input)
+        flat_labels_lst = []
+        for i, labels in enumerate(token_labels):
+            if type(labels[0]) == list:
+                flat_labels = list(itertools.chain(*labels))
+            else:
+                flat_labels = deepcopy(labels)
+            flat_labels_lst.append(flat_labels)
+
+        tokenised_input["label_ids"] = flat_labels_lst
+        tokenised_input["words"] = flat_input_tokens
 
         # copy over word ids
         tokenised_input["word_ids"] = [
@@ -401,7 +410,7 @@ class JsonDocumentDataset(Dataset):
 
     def save_predictions(self, filepath: str):
         with open(filepath, 'w') as f:
-            json.dump([{"tokens": doc["tokens"], "token_preds": doc["token_preds"], "label_ids": doc["label_ids"], "label": doc["label"],
+            json.dump([{"tokens": doc["words"], "token_preds": doc["token_preds"], "label_ids": doc["label_ids"], "label": doc["label"],
                         "pred": doc["pred"]} for doc in self.tokenised_input], f)
 
     def add_preds(self, indices: List[int], document_preds: List[float], token_preds: List[Any]):

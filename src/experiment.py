@@ -280,6 +280,7 @@ class Experiment:
         :return:
         """
         new_token_preds = []
+        word_final_preds = []
 
         # Go through the batch
         for i, doc_preds in enumerate(token_preds):
@@ -305,7 +306,7 @@ class Experiment:
                 new_token_preds.append(sent_token_preds)
 
             else:
-                word_preds = [0.0 for _ in range(max(dataset['word_ids'][i]) + 1)]
+                word_preds = [0.0 for _ in range(len(dataset['label_ids'][i]))]
 
                 # Iterate through tokens
                 for j in range(len(dataset['input_ids'][i])):
@@ -321,7 +322,10 @@ class Experiment:
                 new_token_preds.append([word_preds[dataset['word_ids'][i][j]] if
                                         dataset['word_ids'][i][j] != -1 else -100 for j in
                                         range(len(dataset['input_ids'][i]))])
-        return new_token_preds
+
+            word_final_preds.append(word_preds)
+        return word_final_preds
+        #return new_token_preds
 
     def __move_batch(self, batch, device):
         """
