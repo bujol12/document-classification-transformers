@@ -13,7 +13,7 @@ class Metrics:
     token_p = None
     token_r = None
 
-    def __init__(self, dataset: JsonDocumentDataset, loss):
+    def __init__(self, dataset: JsonDocumentDataset, loss, threshold=None):
         """
             Compute metrics for the (flattened) given predictions
             :param dataset:
@@ -100,7 +100,11 @@ class Metrics:
                 token_true_lst.append(self.token_true[i].item())
                 token_preds_lst.append(self.token_preds[i].item())
 
-            token_pred_labels = torch.round(torch.tensor(token_preds_lst))
+            if threshold is None:
+                token_pred_labels = torch.round(torch.tensor(token_preds_lst))
+            else:
+                tensor_tmp = torch.tensor(token_preds_lst)
+                token_pred_labels = torch.where(tensor_tmp < threshold, 1.0, 0.0)
 
             self.token_acc = accuracy_score(token_true_lst, token_pred_labels)
             self.token_map = self.__get_map(token_true, token_preds)

@@ -1,6 +1,7 @@
 import json
 import itertools
 import logging
+import random
 from typing import List, Any, Dict, Tuple
 from copy import deepcopy
 
@@ -431,3 +432,22 @@ class JsonDocumentDataset(Dataset):
                 continue
             final_dct[k] = v
         return final_dct
+
+    def set_random_baseline(self, k: float):
+        features_with_idx = [self[idx] for idx in range(len(self))]
+        features = {}
+        for feat, _ in features_with_idx:
+            for k, v in feat.items():
+                features[k] = features.get(k, []) + [v]
+        idx = [idx for _, idx in features_with_idx]
+
+        # tokenise the batch
+        features = self.__tokenise_and_align(**features)
+
+        for i, idx_val in enumerate(idx):
+            self.tokenised_input[idx_val] = {k: v[i] for k, v in features.items()}
+
+        for doc in self.tokenised_input:
+            doc["pred"] = 0
+            doc["token_preds"] = [[random.uniform(0, 1) for _ in range(len(sent))] for sent in doc["label_ids"]]
+            #print(doc["token_preds"], doc["label_ids"])
