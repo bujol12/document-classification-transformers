@@ -190,10 +190,12 @@ class Experiment:
                     # stop if no improvement
                     logger.info(f"No improvement of eval loss after {early_stop_cnt} epochs, early stopping...")
                     # restore best model
-                    self.model.load_state_dict(best_model_state_dict)
+                    #self.model.load_state_dict(best_model_state_dict)
                     break
 
         logger.info(f"Average time per epoch: {round(time_sum_secs / time_epoch_cnt)} seconds")
+        # pick best performing model on dev
+        self.model.load_state_dict(best_model_state_dict)
 
     def eval(self, eval_dataset):
         data_loader = DataLoader(eval_dataset,
